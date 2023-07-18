@@ -1,8 +1,8 @@
 [package]
-name = "tutorial8-depth"
-version = "0.1.0"
-authors = ["Ben Hansen <bhbenjaminhansen@gmail.com>"]
-edition = "2018"
+name = "raum"
+version = "0.3.0"
+authors = ["Dan Niels"]
+edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

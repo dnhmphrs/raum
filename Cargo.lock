@@ -1167,6 +1167,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8a99fddc9f0ba0a85884b8d14e3592853e787d581ca1816c91349b10e4eeab"
 
 [[package]]
+name = "raum"
+version = "0.3.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "cfg-if",
+ "cgmath",
+ "console_error_panic_hook",
+ "console_log",
+ "env_logger",
+ "fs_extra",
+ "glob",
+ "image",
+ "log",
+ "pollster",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "raw-window-handle"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1426,29 +1449,6 @@ name = "ttf-parser"
 version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a464a4b34948a5f67fddd2b823c62d9d92e44be75058b99939eae6c5b6960b33"
-
-[[package]]
-name = "tutorial8-depth"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "cfg-if",
- "cgmath",
- "console_error_panic_hook",
- "console_log",
- "env_logger",
- "fs_extra",
- "glob",
- "image",
- "log",
- "pollster",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "wgpu",
- "winit",
-]
 
 [[package]]
 name = "unicode-ident"

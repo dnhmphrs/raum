@@ -17,7 +17,6 @@ mod texture;
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
     position: [f32; 3],
-    tex_coords: [f32; 2],
 }
 
 impl Vertex {
@@ -44,28 +43,40 @@ impl Vertex {
 
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [-0.0868241, 0.49240386, 0.0],
-        tex_coords: [0.4131759, 0.00759614],
-    }, // A
+        position: [-0.025, -0.025, -0.025],
+    },
     Vertex {
-        position: [-0.49513406, 0.06958647, 0.0],
-        tex_coords: [0.0048659444, 0.43041354],
-    }, // B
+        position: [-0.025, -0.025, 0.025],
+    },
     Vertex {
-        position: [-0.21918549, -0.44939706, 0.0],
-        tex_coords: [0.28081453, 0.949397],
-    }, // C
+        position: [-0.025, 0.025, -0.025],
+    },
     Vertex {
-        position: [0.35966998, -0.3473291, 0.0],
-        tex_coords: [0.85967, 0.84732914],
-    }, // D
+        position: [-0.025, 0.025, 0.025],
+    },
     Vertex {
-        position: [0.44147372, 0.2347359, 0.0],
-        tex_coords: [0.9414737, 0.2652641],
-    }, // E
+        position: [0.025, -0.025, -0.025],
+    },
+    Vertex {
+        position: [0.025, -0.025, 0.025],
+    },
+    Vertex {
+        position: [0.025, 0.025, -0.025],
+    },
+    Vertex {
+        position: [0.025, 0.025, 0.025],
+    },
 ];
 
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4, /* padding */ 0];
+const INDICES: &[u16] = &[
+    0, 1, 2, // front face
+    2, 1, 3, 4, 5, 6, // back face
+    6, 5, 7, 0, 1, 4, // bottom face
+    4, 1, 5, 2, 3, 6, // top face
+    6, 3, 7, 0, 2, 4, // left face
+    4, 2, 6, 1, 3, 5, // right face
+    5, 3, 7,
+];
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -75,10 +86,10 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 1.0,
 );
 
-const NUM_INSTANCES_PER_ROW: u32 = 100;
+const NUM_INSTANCES_PER_ROW: u32 = 50;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
-    0.0,
+    NUM_INSTANCES_PER_ROW as f32 * 0.5,
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
 );
 
@@ -289,8 +300,8 @@ struct State {
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     #[allow(dead_code)]
-    diffuse_texture: texture::Texture,
-    diffuse_bind_group: wgpu::BindGroup,
+    // diffuse_texture: texture::Texture,
+    // diffuse_bind_group: wgpu::BindGroup,
     camera: Camera,
     camera_controller: CameraController,
     camera_uniform: CameraUniform,
@@ -368,47 +379,31 @@ impl State {
         };
         surface.configure(&device, &config);
 
-        let diffuse_bytes = include_bytes!("happy-tree.png");
-        let diffuse_texture =
-            texture::Texture::from_bytes(&device, &queue, diffuse_bytes, "happy-tree.png").unwrap();
+        // let texture_bind_group_layout =
+        //     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        //         entries: &[wgpu::BindGroupLayoutEntry {
+        //             binding: 0,
+        //             visibility: wgpu::ShaderStages::FRAGMENT,
+        //             ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+        //             count: None,
+        //         }],
+        //         label: Some("texture_bind_group_layout"),
+        //     });
 
-        let texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("texture_bind_group_layout"),
-            });
-
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
+        // let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        //     layout: &texture_bind_group_layout,
+        //     entries: &[
+        //         wgpu::BindGroupEntry {
+        //             binding: 0,
+        //             resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+        //         },
+        //         wgpu::BindGroupEntry {
+        //             binding: 1,
+        //             resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+        //         },
+        //     ],
+        //     label: Some("diffuse_bind_group"),
+        // });
 
         let camera = Camera {
             eye: (0.0, 5.0, 10.0).into(),
@@ -417,7 +412,7 @@ impl State {
             aspect: config.width as f32 / config.height as f32,
             fovy: 45.0,
             znear: 0.1,
-            zfar: 100.0,
+            zfar: 1000.0,
         };
         let camera_controller = CameraController::new(0.2);
 
@@ -432,25 +427,30 @@ impl State {
 
         let instances = (0..NUM_INSTANCES_PER_ROW)
             .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let position = cgmath::Vector3 {
-                        x: x as f32,
-                        y: 0.0,
-                        z: z as f32,
-                    } - INSTANCE_DISPLACEMENT;
+                (0..NUM_INSTANCES_PER_ROW).flat_map(move |x| {
+                    (0..NUM_INSTANCES_PER_ROW).map(move |y| {
+                        let position = cgmath::Vector3 {
+                            x: x as f32,
+                            y: y as f32,
+                            z: z as f32,
+                        } - INSTANCE_DISPLACEMENT;
 
-                    let rotation = if position.is_zero() {
-                        // this is needed so an object at (0, 0, 0) won't get scaled to zero
-                        // as Quaternions can effect scale if they're not created correctly
-                        cgmath::Quaternion::from_axis_angle(
-                            cgmath::Vector3::unit_z(),
-                            cgmath::Deg(0.0),
-                        )
-                    } else {
-                        cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
-                    };
+                        let rotation = if position.is_zero() {
+                            // this is needed so an object at (0, 0, 0) won't get scaled to zero
+                            // as Quaternions can effect scale if they're not created correctly
+                            cgmath::Quaternion::from_axis_angle(
+                                cgmath::Vector3::unit_z(),
+                                cgmath::Deg(0.0),
+                            )
+                        } else {
+                            cgmath::Quaternion::from_axis_angle(
+                                position.normalize(),
+                                cgmath::Deg(0.0),
+                            )
+                        };
 
-                    Instance { position, rotation }
+                        Instance { position, rotation }
+                    })
                 })
             })
             .collect::<Vec<_>>();
@@ -497,7 +497,7 @@ impl State {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&texture_bind_group_layout, &camera_bind_group_layout],
+                bind_group_layouts: &[&camera_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -573,8 +573,8 @@ impl State {
             vertex_buffer,
             index_buffer,
             num_indices,
-            diffuse_texture,
-            diffuse_bind_group,
+            // diffuse_texture,
+            // diffuse_bind_group,
             camera,
             camera_controller,
             camera_buffer,
@@ -638,9 +638,9 @@ impl State {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
                             a: 1.0,
                         }),
                         store: true,
@@ -658,8 +658,8 @@ impl State {
 
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
-            render_pass.set_bind_group(1, &self.camera_bind_group, &[]);
+            // render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as u32);
