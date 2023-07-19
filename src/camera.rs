@@ -80,6 +80,12 @@ pub struct CameraController {
     scroll: f32,
     speed: f32,
     sensitivity: f32,
+    is_up_pressed: f32,
+    is_down_pressed: f32,
+    is_forward_pressed: f32,
+    is_backward_pressed: f32,
+    is_left_pressed: f32,
+    is_right_pressed: f32,
 }
 
 impl CameraController {
@@ -91,44 +97,44 @@ impl CameraController {
             scroll: -100.0,
             speed,
             sensitivity,
+            is_up_pressed: 0.0,
+            is_down_pressed: 0.0,
+            is_forward_pressed: 0.0,
+            is_backward_pressed: 0.0,
+            is_left_pressed: 0.0,
+            is_right_pressed: 0.0,
         }
     }
 
     // ... process_keyboard, process_mouse, process_scroll functions ...
 
     pub fn process_keyboard(&mut self, key: VirtualKeyCode, state: ElementState) -> bool {
-        // let amount = if state == ElementState::Pressed {
-        //     1.0
-        // } else {
-        //     0.0
-        // };
-        // match key {
-        //     VirtualKeyCode::W | VirtualKeyCode::Up => {
-        //         self.rotate_vertical = amount;
-        //         true
-        //     }
-        //     VirtualKeyCode::S | VirtualKeyCode::Down => {
-        //         self.rotate_vertical = -amount;
-        //         true
-        //     }
-        //     VirtualKeyCode::A | VirtualKeyCode::Left => {
-        //         self.rotate_horizontal = -amount;
-        //         true
-        //     }
-        //     VirtualKeyCode::D | VirtualKeyCode::Right => {
-        //         self.rotate_horizontal = amount;
-        //         true
-        //     }
-        //     VirtualKeyCode::Space => {
-        //         self.scroll = amount;
-        //         true
-        //     }
-        //     VirtualKeyCode::LShift => {
-        //         self.scroll = -amount;
-        //         true
-        //     }
-        //     _ => false,
-        // }
+        let amount = if state == ElementState::Pressed {
+            1.0
+        } else {
+            0.0
+        };
+        match key {
+            VirtualKeyCode::Space => {
+                self.is_up_pressed = amount;
+            }
+            VirtualKeyCode::LShift => {
+                self.is_down_pressed = amount;
+            }
+            VirtualKeyCode::W | VirtualKeyCode::Up => {
+                self.is_forward_pressed = amount;
+            }
+            VirtualKeyCode::A | VirtualKeyCode::Left => {
+                self.is_left_pressed = amount;
+            }
+            VirtualKeyCode::S | VirtualKeyCode::Down => {
+                self.is_backward_pressed = amount;
+            }
+            VirtualKeyCode::D | VirtualKeyCode::Right => {
+                self.is_right_pressed = amount;
+            }
+            _ => (),
+        }
         false
     }
 
