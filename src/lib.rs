@@ -335,11 +335,11 @@ impl State {
 
         // camera
         let camera = camera::Camera {
-            eye: Point3::new(10.0, 10.0, 10.0),
+            eye: Point3::new(200.0, 200.0, 200.0),
             target: Point3::new(0.0, 0.0, 0.0),
             up: Vector3::new(0.0, 1.0, 0.0),
             aspect: 800.0 / 600.0,
-            fovy: 35.0,
+            fovy: 30.0,
             znear: 0.1,
             zfar: 500.0,
         };
