@@ -82,14 +82,6 @@ const INDICES: &[u16] = &[
     5, 3, 7,
 ];
 
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
-);
-
 const NUM_INSTANCES_PER_ROW: u32 = 50;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
@@ -106,13 +98,12 @@ struct CameraUniform {
 impl CameraUniform {
     fn new() -> Self {
         Self {
-            view_proj: OPENGL_TO_WGPU_MATRIX.into(),
+            view_proj: camera::OPENGL_TO_WGPU_MATRIX.into(),
         }
     }
 
     fn update(&mut self, camera: &camera::Camera) {
-        let view_proj = OPENGL_TO_WGPU_MATRIX * camera.build_view_projection_matrix();
-        self.view_proj = view_proj.into();
+        self.view_proj = camera.build_view_projection_matrix().into();
     }
 }
 
@@ -182,7 +173,7 @@ struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    last_render_time: instant::Instant,
+    // last_render_time: instant::Instant,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
@@ -201,12 +192,13 @@ struct State {
     instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
     mouse_pressed: bool,
+    mouse_released: bool,
 }
 
 impl State {
     async fn new(window: Window) -> Self {
         let size = window.inner_size();
-        let mut last_render_time = instant::Instant::now();
+        // let mut last_render_time = instant::Instant::now();
 
         // add window icon
         let img = include_bytes!("./assets/icon.png");
@@ -351,7 +343,7 @@ impl State {
             znear: 0.1,
             zfar: 250.0,
         };
-        let camera_controller = camera::CameraController::new(1.0, 1.0);
+        let camera_controller = camera::CameraController::new(1.0, 0.5, 1.0);
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update(&camera);
@@ -467,7 +459,7 @@ impl State {
             window,
             surface,
             device,
-            last_render_time,
+            // last_render_time,
             queue,
             config,
             size,
@@ -486,6 +478,7 @@ impl State {
             instance_buffer,
             depth_texture,
             mouse_pressed: false,
+            mouse_released: false,
         }
     }
 
@@ -532,8 +525,7 @@ impl State {
         }
     }
 
-    fn update(&mut self, dt: std::time::Duration) {
-        // UPDATED!
+    fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
         self.camera_uniform.update(&self.camera);
 
@@ -636,20 +628,19 @@ pub async fn run() {
     }
 
     let mut state = State::new(window).await; // NEW!
-    let mut last_render_time = instant::Instant::now();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
         match event {
             Event::MainEventsCleared => state.window().request_redraw(),
-            // NEW!
-            // Event::DeviceEvent {
-            //     event: DeviceEvent::MouseMotion{ delta, },
-            //     .. // We're not using device_id currently
-            // } => if state.mouse_pressed {
-            //     state.camera_controller.process_mouse(delta.0, delta.1)
-            // }
-            // UPDATED!
+            Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion{ delta, },
+                .. // We're not using device_id currently
+            } => if state.mouse_pressed {
+                state.camera_controller.process_mouse(delta.0, delta.1)
+            } else if state.mouse_released {
+                state.mouse_released = false;
+            },
             Event::WindowEvent {
                 ref event,
                 window_id,
@@ -674,10 +665,10 @@ pub async fn run() {
                 _ => {}
             },
             Event::RedrawRequested(window_id) if window_id == state.window().id() => {
-                let now = instant::Instant::now();
-                let dt = now - last_render_time;
-                last_render_time = now;
-                state.update(dt);
+                // let now = instant::Instant::now();
+                // let dt = now - last_render_time;
+                // last_render_time = now;
+                state.update();
                 match state.render() {
                     Ok(_) => {}
                     // Reconfigure the surface if it's lost or outdated

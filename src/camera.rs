@@ -1,8 +1,9 @@
 use cgmath::*;
-use std::f32::consts::FRAC_PI_2;
-use std::time::Duration;
+// use std::time::Duration;
 use winit::dpi::PhysicalPosition;
 use winit::event::*;
+
+// const MAX_ROTATION_SPEED: f32 = 1000.0;
 
 #[rustfmt::skip]
 pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
@@ -11,8 +12,6 @@ pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
     0.0, 0.0, 0.5, 0.0,
     0.0, 0.0, 0.5, 1.0,
 );
-
-const SAFE_FRAC_PI_2: f32 = FRAC_PI_2 - 0.0001;
 
 pub struct Camera {
     pub eye: Point3<f32>,
@@ -28,7 +27,7 @@ impl Camera {
     pub fn build_view_projection_matrix(&self) -> Matrix4<f32> {
         let view = Matrix4::look_at_rh(self.eye, self.target, self.up);
         let proj = perspective(Deg(self.fovy), self.aspect, self.znear, self.zfar);
-        proj * view
+        OPENGL_TO_WGPU_MATRIX * proj * view
     }
 
     pub fn update_aspect(&mut self, width: u32, height: u32) {
@@ -38,7 +37,8 @@ impl Camera {
 
 pub struct CameraController {
     speed: f32,
-    sensitivity: f32,
+    mouse_sensitivity: f32,
+    scroll_sensitivity: f32,
     rotate_horizontal: f32,
     rotate_vertical: f32,
     scroll: f32,
@@ -51,10 +51,11 @@ pub struct CameraController {
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32) -> Self {
+    pub fn new(speed: f32, mouse_sensitivity: f32, scroll_sensitivity: f32) -> Self {
         Self {
             speed,
-            sensitivity,
+            mouse_sensitivity,
+            scroll_sensitivity,
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
             scroll: 0.0,
@@ -103,14 +104,14 @@ impl CameraController {
     }
 
     pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
-        self.rotate_horizontal = mouse_dx as f32;
-        self.rotate_vertical = mouse_dy as f32;
+        self.rotate_horizontal = mouse_dx as f32 * self.mouse_sensitivity * 0.01;
+        self.rotate_vertical = mouse_dy as f32 * self.mouse_sensitivity * 0.01;
     }
 
     pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
         self.scroll = match delta {
             // I'm assuming a line is about 100 pixels
-            MouseScrollDelta::LineDelta(_, scroll) => -scroll * self.sensitivity,
+            MouseScrollDelta::LineDelta(_, scroll) => scroll * self.scroll_sensitivity,
             MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => -*scroll as f32,
         };
     }
@@ -118,95 +119,54 @@ impl CameraController {
     pub fn update_camera(&mut self, camera: &mut Camera) {
         let forward = (camera.target - camera.eye).normalize();
         let right = camera.up.cross(forward).normalize();
-        let up = forward.cross(right);
+        // let up = forward.cross(right);
 
         if self.scroll != 0.0 {
             camera.eye += forward * self.scroll * self.speed;
             self.scroll = 0.0;
         }
 
+        if self.rotate_horizontal != 0.0 || self.rotate_vertical != 0.0 {
+            let direction = camera.target - camera.eye;
+            let distance = direction.magnitude();
+            let direction = direction.normalize();
+
+            let horizontal_angle = Rad(self.rotate_horizontal);
+            let vertical_angle = Rad(self.rotate_vertical);
+
+            let horizontal_rotation = Quaternion::from_axis_angle(camera.up, horizontal_angle);
+            let vertical_rotation = Quaternion::from_axis_angle(right, vertical_angle);
+
+            let direction = horizontal_rotation * (vertical_rotation * direction);
+            camera.eye = camera.target - direction * distance;
+
+            self.rotate_horizontal = 0.0;
+            self.rotate_vertical = 0.0;
+        }
+
         if self.is_forward_pressed {
-            camera.eye += self.speed * forward;
-            camera.target += self.speed * forward;
+            // camera.eye += self.speed * forward;
+            // camera.target += self.speed * forward;
         }
         if self.is_backward_pressed {
-            camera.eye -= self.speed * forward;
-            camera.target -= self.speed * forward;
+            // camera.eye -= self.speed * forward;
+            // camera.target -= self.speed * forward;
         }
         if self.is_right_pressed {
-            camera.eye -= self.speed * right;
-            camera.target -= self.speed * right;
+            // camera.eye -= self.speed * right;
+            // camera.target -= self.speed * right;
         }
         if self.is_left_pressed {
-            camera.eye += self.speed * right;
-            camera.target += self.speed * right;
+            // camera.eye += self.speed * right;
+            // camera.target += self.speed * right;
         }
         if self.is_up_pressed {
-            camera.eye += self.speed * up;
-            camera.target += self.speed * up;
+            // camera.eye += self.speed * up;
+            // camera.target += self.speed * up;
         }
         if self.is_down_pressed {
-            camera.eye -= self.speed * up;
-            camera.target -= self.speed * up;
+            // camera.eye -= self.speed * up;
+            // camera.target -= self.speed * up;
         }
     }
 }
-
-// pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
-//     self.yaw += Rad(mouse_dx as f32 * self.sensitivity); // * dt.as_secs_f32());
-//     self.pitch += Rad(-mouse_dy as f32 * self.sensitivity); // * dt.as_secs_f32());
-
-//     if self.pitch < -Rad(FRAC_PI_2) {
-//         self.pitch = -Rad(FRAC_PI_2);
-//     } else if self.pitch > Rad(FRAC_PI_2) {
-//         self.pitch = Rad(FRAC_PI_2);
-//     }
-// }
-
-// pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
-//     match delta {
-//         MouseScrollDelta::LineDelta(_, scroll) => self.scroll = scroll * 20.0,
-//         MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
-//             self.scroll = *scroll as f32
-//         }
-//     };
-
-//     self.radius -= self.scroll * self.speed * self.sensitivity; // * dt.as_secs_f32();
-//     if self.radius < 0.0 {
-//         self.radius = 0.0;
-//     }
-// }
-
-// pub fn update_camera(&mut self, camera: &mut Camera) {
-//     // Calculate the new eye position based on yaw and pitch
-//     let (sin_yaw, cos_yaw) = self.yaw.0.sin_cos();
-//     let (sin_pitch, cos_pitch) = self.pitch.0.sin_cos();
-//     let eye_offset = Vector3::new(
-//         self.radius * cos_pitch * cos_yaw,
-//         self.radius * sin_pitch,
-//         self.radius * cos_pitch * sin_yaw,
-//     );
-
-//     camera.eye = Point3::from_vec(camera.target.to_vec() + eye_offset);
-
-//     // Update target position based on keyboard input
-//     if self.is_forward_pressed > 0.0 {
-//         camera.target += self.speed * Vector3::unit_z();
-//     }
-//     if self.is_backward_pressed > 0.0 {
-//         camera.target -= self.speed * Vector3::unit_z();
-//     }
-//     if self.is_right_pressed > 0.0 {
-//         camera.target -= self.speed * Vector3::unit_x();
-//     }
-//     if self.is_left_pressed > 0.0 {
-//         camera.target += self.speed * Vector3::unit_x();
-//     }
-//     if self.is_up_pressed > 0.0 {
-//         camera.target += self.speed * Vector3::unit_y();
-//     }
-//     if self.is_down_pressed > 0.0 {
-//         camera.target -= self.speed * Vector3::unit_y();
-//     }
-// }
-// }
