@@ -621,7 +621,7 @@ impl State {
 
                     let rotation = if position.is_zero() {
                         // this is needed so an object at (0, 0, 0) won't get scaled to zero
-                        // as Quaternions can effect scale if they're not create correctly
+                        // as Quaternions can affect scale if they're not create correctly
                         cgmath::Quaternion::from_axis_angle(
                             cgmath::Vector3::unit_z(),
                             cgmath::Deg(0.0),
