@@ -5,7 +5,7 @@ use wgpu::util::DeviceExt;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    window::{Icon, Window, WindowBuilder},
 };
 
 #[cfg(target_arch = "wasm32")]
@@ -318,6 +318,16 @@ struct State {
 impl State {
     async fn new(window: Window) -> Self {
         let size = window.inner_size();
+
+        // add window icon
+        let img = include_bytes!("./assets/icon.png");
+        let icon = image::load_from_memory(img).unwrap();
+        window.set_window_icon(Some(
+            Icon::from_rgba(icon.to_rgba8().into_raw(), icon.width(), icon.height()).unwrap(),
+        ));
+
+        // add window title
+        window.set_title(" Raum");
 
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
