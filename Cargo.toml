@@ -4,8 +4,13 @@ version = "0.3.0"
 authors = ["Dan Niels"]
 edition = "2021"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
+# [[bin]]
+# name = "raum-main"
+# path = "src/main.rs"
+
+# [lib]
+# crate-type = ["cdylib", "rlib"]
+
 
 [dependencies]
 cfg-if = "1"
