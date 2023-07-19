@@ -351,7 +351,7 @@ impl State {
             znear: 0.1,
             zfar: 250.0,
         };
-        let camera_controller = camera::CameraController::new(1.0, 0.2);
+        let camera_controller = camera::CameraController::new(1.0, 1.0);
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update(&camera);
@@ -516,10 +516,10 @@ impl State {
                     },
                 ..
             } => self.camera_controller.process_keyboard(*key, *state),
-            // WindowEvent::MouseWheel { delta, .. } => {
-            //     self.camera_controller.process_scroll(delta);
-            //     true
-            // }
+            WindowEvent::MouseWheel { delta, .. } => {
+                self.camera_controller.process_scroll(delta);
+                true
+            }
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state,

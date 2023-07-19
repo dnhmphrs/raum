@@ -39,6 +39,9 @@ impl Camera {
 pub struct CameraController {
     speed: f32,
     sensitivity: f32,
+    rotate_horizontal: f32,
+    rotate_vertical: f32,
+    scroll: f32,
     is_up_pressed: bool,
     is_down_pressed: bool,
     is_forward_pressed: bool,
@@ -52,6 +55,9 @@ impl CameraController {
         Self {
             speed,
             sensitivity,
+            rotate_horizontal: 0.0,
+            rotate_vertical: 0.0,
+            scroll: 0.0,
             is_up_pressed: false,
             is_down_pressed: false,
             is_forward_pressed: false,
@@ -96,10 +102,28 @@ impl CameraController {
         }
     }
 
+    pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
+        self.rotate_horizontal = mouse_dx as f32;
+        self.rotate_vertical = mouse_dy as f32;
+    }
+
+    pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
+        self.scroll = match delta {
+            // I'm assuming a line is about 100 pixels
+            MouseScrollDelta::LineDelta(_, scroll) => -scroll * self.sensitivity,
+            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => -*scroll as f32,
+        };
+    }
+
     pub fn update_camera(&mut self, camera: &mut Camera) {
         let forward = (camera.target - camera.eye).normalize();
         let right = camera.up.cross(forward).normalize();
         let up = forward.cross(right);
+
+        if self.scroll != 0.0 {
+            camera.eye += forward * self.scroll * self.speed;
+            self.scroll = 0.0;
+        }
 
         if self.is_forward_pressed {
             camera.eye += self.speed * forward;
@@ -110,12 +134,12 @@ impl CameraController {
             camera.target -= self.speed * forward;
         }
         if self.is_right_pressed {
-            camera.eye += self.speed * right;
-            camera.target += self.speed * right;
-        }
-        if self.is_left_pressed {
             camera.eye -= self.speed * right;
             camera.target -= self.speed * right;
+        }
+        if self.is_left_pressed {
+            camera.eye += self.speed * right;
+            camera.target += self.speed * right;
         }
         if self.is_up_pressed {
             camera.eye += self.speed * up;
