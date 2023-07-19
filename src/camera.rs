@@ -39,126 +39,150 @@ impl Camera {
 pub struct CameraController {
     speed: f32,
     sensitivity: f32,
-    yaw: Rad<f32>,
-    pitch: Rad<f32>,
-    radius: f32,
-    scroll: f32,
-    is_up_pressed: f32,
-    is_down_pressed: f32,
-    is_forward_pressed: f32,
-    is_backward_pressed: f32,
-    is_left_pressed: f32,
-    is_right_pressed: f32,
+    is_up_pressed: bool,
+    is_down_pressed: bool,
+    is_forward_pressed: bool,
+    is_backward_pressed: bool,
+    is_left_pressed: bool,
+    is_right_pressed: bool,
 }
 
 impl CameraController {
-    pub fn new(speed: f32, sensitivity: f32, radius: f32) -> Self {
+    pub fn new(speed: f32, sensitivity: f32) -> Self {
         Self {
             speed,
             sensitivity,
-            yaw: Rad(0.0),
-            pitch: Rad(0.0),
-            radius,
-            scroll: 0.0,
-            is_up_pressed: 0.0,
-            is_down_pressed: 0.0,
-            is_forward_pressed: 0.0,
-            is_backward_pressed: 0.0,
-            is_left_pressed: 0.0,
-            is_right_pressed: 0.0,
+            is_up_pressed: false,
+            is_down_pressed: false,
+            is_forward_pressed: false,
+            is_backward_pressed: false,
+            is_left_pressed: false,
+            is_right_pressed: false,
         }
     }
 
     pub fn process_keyboard(&mut self, key: VirtualKeyCode, state: ElementState) -> bool {
-        let amount = if state == ElementState::Pressed {
-            0.01
+        let is_pressed = if state == ElementState::Pressed {
+            true
         } else {
-            0.0
+            false
         };
         match key {
             VirtualKeyCode::Space => {
-                self.is_up_pressed = amount;
+                self.is_up_pressed = is_pressed;
                 true
             }
             VirtualKeyCode::LShift => {
-                self.is_down_pressed = amount;
+                self.is_down_pressed = is_pressed;
                 false
             }
             VirtualKeyCode::W | VirtualKeyCode::Up => {
-                self.is_forward_pressed = amount;
+                self.is_forward_pressed = is_pressed;
                 true
             }
             VirtualKeyCode::A | VirtualKeyCode::Left => {
-                self.is_left_pressed = amount;
+                self.is_left_pressed = is_pressed;
                 true
             }
             VirtualKeyCode::S | VirtualKeyCode::Down => {
-                self.is_backward_pressed = amount;
+                self.is_backward_pressed = is_pressed;
                 true
             }
             VirtualKeyCode::D | VirtualKeyCode::Right => {
-                self.is_right_pressed = amount;
+                self.is_right_pressed = is_pressed;
                 true
             }
             _ => false,
         }
     }
 
-    pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
-        self.yaw += Rad(mouse_dx as f32 * self.sensitivity); // * dt.as_secs_f32());
-        self.pitch += Rad(-mouse_dy as f32 * self.sensitivity); // * dt.as_secs_f32());
-
-        if self.pitch < -Rad(FRAC_PI_2) {
-            self.pitch = -Rad(FRAC_PI_2);
-        } else if self.pitch > Rad(FRAC_PI_2) {
-            self.pitch = Rad(FRAC_PI_2);
-        }
-    }
-
-    pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
-        match delta {
-            MouseScrollDelta::LineDelta(_, scroll) => self.scroll = scroll * 20.0,
-            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
-                self.scroll = *scroll as f32
-            }
-        };
-
-        self.radius -= self.scroll * self.speed * self.sensitivity; // * dt.as_secs_f32();
-        if self.radius < 0.0 {
-            self.radius = 0.0;
-        }
-    }
-
     pub fn update_camera(&mut self, camera: &mut Camera) {
-        // Calculate the new eye position based on yaw and pitch
-        let (sin_yaw, cos_yaw) = self.yaw.0.sin_cos();
-        let (sin_pitch, cos_pitch) = self.pitch.0.sin_cos();
-        let eye_offset = Vector3::new(
-            self.radius * cos_pitch * cos_yaw,
-            self.radius * sin_pitch,
-            self.radius * cos_pitch * sin_yaw,
-        );
+        let forward = (camera.target - camera.eye).normalize();
+        let right = camera.up.cross(forward).normalize();
+        let up = forward.cross(right);
 
-        camera.eye = Point3::from_vec(camera.target.to_vec() + eye_offset);
-
-        // Update target position based on keyboard input
-        if self.is_forward_pressed > 0.0 {
-            camera.target += self.speed * Vector3::unit_z();
+        if self.is_forward_pressed {
+            camera.eye += self.speed * forward;
+            camera.target += self.speed * forward;
         }
-        if self.is_backward_pressed > 0.0 {
-            camera.target -= self.speed * Vector3::unit_z();
+        if self.is_backward_pressed {
+            camera.eye -= self.speed * forward;
+            camera.target -= self.speed * forward;
         }
-        if self.is_right_pressed > 0.0 {
-            camera.target -= self.speed * Vector3::unit_x();
+        if self.is_right_pressed {
+            camera.eye += self.speed * right;
+            camera.target += self.speed * right;
         }
-        if self.is_left_pressed > 0.0 {
-            camera.target += self.speed * Vector3::unit_x();
+        if self.is_left_pressed {
+            camera.eye -= self.speed * right;
+            camera.target -= self.speed * right;
         }
-        if self.is_up_pressed > 0.0 {
-            camera.target += self.speed * Vector3::unit_y();
+        if self.is_up_pressed {
+            camera.eye += self.speed * up;
+            camera.target += self.speed * up;
         }
-        if self.is_down_pressed > 0.0 {
-            camera.target -= self.speed * Vector3::unit_y();
+        if self.is_down_pressed {
+            camera.eye -= self.speed * up;
+            camera.target -= self.speed * up;
         }
     }
 }
+
+// pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
+//     self.yaw += Rad(mouse_dx as f32 * self.sensitivity); // * dt.as_secs_f32());
+//     self.pitch += Rad(-mouse_dy as f32 * self.sensitivity); // * dt.as_secs_f32());
+
+//     if self.pitch < -Rad(FRAC_PI_2) {
+//         self.pitch = -Rad(FRAC_PI_2);
+//     } else if self.pitch > Rad(FRAC_PI_2) {
+//         self.pitch = Rad(FRAC_PI_2);
+//     }
+// }
+
+// pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
+//     match delta {
+//         MouseScrollDelta::LineDelta(_, scroll) => self.scroll = scroll * 20.0,
+//         MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => {
+//             self.scroll = *scroll as f32
+//         }
+//     };
+
+//     self.radius -= self.scroll * self.speed * self.sensitivity; // * dt.as_secs_f32();
+//     if self.radius < 0.0 {
+//         self.radius = 0.0;
+//     }
+// }
+
+// pub fn update_camera(&mut self, camera: &mut Camera) {
+//     // Calculate the new eye position based on yaw and pitch
+//     let (sin_yaw, cos_yaw) = self.yaw.0.sin_cos();
+//     let (sin_pitch, cos_pitch) = self.pitch.0.sin_cos();
+//     let eye_offset = Vector3::new(
+//         self.radius * cos_pitch * cos_yaw,
+//         self.radius * sin_pitch,
+//         self.radius * cos_pitch * sin_yaw,
+//     );
+
+//     camera.eye = Point3::from_vec(camera.target.to_vec() + eye_offset);
+
+//     // Update target position based on keyboard input
+//     if self.is_forward_pressed > 0.0 {
+//         camera.target += self.speed * Vector3::unit_z();
+//     }
+//     if self.is_backward_pressed > 0.0 {
+//         camera.target -= self.speed * Vector3::unit_z();
+//     }
+//     if self.is_right_pressed > 0.0 {
+//         camera.target -= self.speed * Vector3::unit_x();
+//     }
+//     if self.is_left_pressed > 0.0 {
+//         camera.target += self.speed * Vector3::unit_x();
+//     }
+//     if self.is_up_pressed > 0.0 {
+//         camera.target += self.speed * Vector3::unit_y();
+//     }
+//     if self.is_down_pressed > 0.0 {
+//         camera.target -= self.speed * Vector3::unit_y();
+//     }
+// }
+// }

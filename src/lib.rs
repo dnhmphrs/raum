@@ -349,9 +349,9 @@ impl State {
             aspect: 800.0 / 600.0,
             fovy: 45.0,
             znear: 0.1,
-            zfar: 100.0,
+            zfar: 250.0,
         };
-        let camera_controller = camera::CameraController::new(20.0, 0.4, 20.0);
+        let camera_controller = camera::CameraController::new(1.0, 0.2);
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update(&camera);
@@ -516,10 +516,10 @@ impl State {
                     },
                 ..
             } => self.camera_controller.process_keyboard(*key, *state),
-            WindowEvent::MouseWheel { delta, .. } => {
-                self.camera_controller.process_scroll(delta);
-                true
-            }
+            // WindowEvent::MouseWheel { delta, .. } => {
+            //     self.camera_controller.process_scroll(delta);
+            //     true
+            // }
             WindowEvent::MouseInput {
                 button: MouseButton::Left,
                 state,
@@ -643,38 +643,36 @@ pub async fn run() {
         match event {
             Event::MainEventsCleared => state.window().request_redraw(),
             // NEW!
-            Event::DeviceEvent {
-                event: DeviceEvent::MouseMotion{ delta, },
-                .. // We're not using device_id currently
-            } => if state.mouse_pressed {
-                state.camera_controller.process_mouse(delta.0, delta.1)
-            }
+            // Event::DeviceEvent {
+            //     event: DeviceEvent::MouseMotion{ delta, },
+            //     .. // We're not using device_id currently
+            // } => if state.mouse_pressed {
+            //     state.camera_controller.process_mouse(delta.0, delta.1)
+            // }
             // UPDATED!
             Event::WindowEvent {
                 ref event,
                 window_id,
-            } if window_id == state.window().id() && !state.input(event) => {
-                match event {
-                    #[cfg(not(target_arch="wasm32"))]
-                    WindowEvent::CloseRequested
-                    | WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            },
-                        ..
-                    } => *control_flow = ControlFlow::Exit,
-                    WindowEvent::Resized(physical_size) => {
-                        state.resize(*physical_size);
-                    }
-                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                        state.resize(**new_inner_size);
-                    }
-                    _ => {}
+            } if window_id == state.window().id() && !state.input(event) => match event {
+                #[cfg(not(target_arch = "wasm32"))]
+                WindowEvent::CloseRequested
+                | WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            ..
+                        },
+                    ..
+                } => *control_flow = ControlFlow::Exit,
+                WindowEvent::Resized(physical_size) => {
+                    state.resize(*physical_size);
                 }
-            }
+                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                    state.resize(**new_inner_size);
+                }
+                _ => {}
+            },
             Event::RedrawRequested(window_id) if window_id == state.window().id() => {
                 let now = instant::Instant::now();
                 let dt = now - last_render_time;
