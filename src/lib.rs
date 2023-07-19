@@ -1,6 +1,7 @@
 use std::iter;
 
 use cgmath::prelude::*;
+use cgmath::*;
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -99,21 +100,19 @@ const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct CameraUniform {
-    view_position: [f32; 4],
     view_proj: [[f32; 4]; 4],
 }
 
 impl CameraUniform {
     fn new() -> Self {
         Self {
-            view_position: [0.0; 4],
-            view_proj: cgmath::Matrix4::identity().into(),
+            view_proj: OPENGL_TO_WGPU_MATRIX.into(),
         }
     }
 
-    fn update_view_proj(&mut self, camera: &camera::Camera, projection: &camera::Projection) {
-        self.view_position = camera.position.to_homogeneous().into();
-        self.view_proj = (projection.calc_matrix() * camera.calc_matrix()).into()
+    fn update(&mut self, camera: &camera::Camera) {
+        let view_proj = OPENGL_TO_WGPU_MATRIX * camera.build_view_projection_matrix();
+        self.view_proj = view_proj.into();
     }
 }
 
@@ -183,6 +182,7 @@ struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
+    last_render_time: instant::Instant,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     render_pipeline: wgpu::RenderPipeline,
@@ -193,7 +193,6 @@ struct State {
     // diffuse_texture: texture::Texture,
     // diffuse_bind_group: wgpu::BindGroup,
     camera: camera::Camera,
-    projection: camera::Projection,
     camera_controller: camera::CameraController,
     camera_uniform: CameraUniform,
     camera_buffer: wgpu::Buffer,
@@ -207,6 +206,7 @@ struct State {
 impl State {
     async fn new(window: Window) -> Self {
         let size = window.inner_size();
+        let mut last_render_time = instant::Instant::now();
 
         // add window icon
         let img = include_bytes!("./assets/icon.png");
@@ -342,13 +342,19 @@ impl State {
         });
 
         // camera
-        let camera = camera::Camera::new((10.0, 10.0, 10.0), cgmath::Deg(0.0), cgmath::Deg(-30.0));
-        let projection =
-            camera::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.01, 100.0);
+        let camera = camera::Camera {
+            eye: Point3::new(10.0, 10.0, 10.0),
+            target: Point3::new(0.0, 0.0, 0.0),
+            up: Vector3::new(0.0, 1.0, 0.0),
+            aspect: 800.0 / 600.0,
+            fovy: 45.0,
+            znear: 0.1,
+            zfar: 100.0,
+        };
         let camera_controller = camera::CameraController::new(20.0, 0.4, 20.0);
 
         let mut camera_uniform = CameraUniform::new();
-        camera_uniform.update_view_proj(&camera, &projection);
+        camera_uniform.update(&camera);
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera Buffer"),
@@ -461,6 +467,7 @@ impl State {
             window,
             surface,
             device,
+            last_render_time,
             queue,
             config,
             size,
@@ -471,7 +478,6 @@ impl State {
             // diffuse_texture,
             // diffuse_bind_group,
             camera,
-            projection,
             camera_controller,
             camera_buffer,
             camera_bind_group,
@@ -492,7 +498,7 @@ impl State {
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
-            self.projection.resize(new_size.width, new_size.height);
+            self.camera.update_aspect(new_size.width, new_size.height);
             self.surface.configure(&self.device, &self.config);
             self.depth_texture =
                 texture::Texture::create_depth_texture(&self.device, &self.config, "depth_texture");
@@ -528,9 +534,9 @@ impl State {
 
     fn update(&mut self, dt: std::time::Duration) {
         // UPDATED!
-        self.camera_controller.update_camera(&mut self.camera, dt);
-        self.camera_uniform
-            .update_view_proj(&self.camera, &self.projection);
+        self.camera_controller.update_camera(&mut self.camera);
+        self.camera_uniform.update(&self.camera);
+
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
@@ -629,8 +635,7 @@ pub async fn run() {
             .expect("Couldn't append canvas to document body.");
     }
 
-    // State::new uses async code, so we're going to wait for it to finish
-    let mut state = State::new(window).await;
+    let mut state = State::new(window).await; // NEW!
     let mut last_render_time = instant::Instant::now();
 
     event_loop.run(move |event, _, control_flow| {
