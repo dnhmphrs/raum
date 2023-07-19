@@ -47,28 +47,28 @@ impl Vertex {
 
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [-0.025, -0.025, -0.025],
+        position: [-0.05, -0.05, -0.05],
     },
     Vertex {
-        position: [-0.025, -0.025, 0.025],
+        position: [-0.05, -0.05, 0.05],
     },
     Vertex {
-        position: [-0.025, 0.025, -0.025],
+        position: [-0.05, 0.05, -0.05],
     },
     Vertex {
-        position: [-0.025, 0.025, 0.025],
+        position: [-0.05, 0.05, 0.05],
     },
     Vertex {
-        position: [0.025, -0.025, -0.025],
+        position: [0.05, -0.05, -0.05],
     },
     Vertex {
-        position: [0.025, -0.025, 0.025],
+        position: [0.05, -0.05, 0.05],
     },
     Vertex {
-        position: [0.025, 0.025, -0.025],
+        position: [0.05, 0.05, -0.05],
     },
     Vertex {
-        position: [0.025, 0.025, 0.025],
+        position: [0.05, 0.05, 0.05],
     },
 ];
 
@@ -82,7 +82,7 @@ const INDICES: &[u16] = &[
     5, 3, 7,
 ];
 
-const NUM_INSTANCES_PER_ROW: u32 = 50;
+const NUM_INSTANCES_PER_ROW: u32 = 100;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
     NUM_INSTANCES_PER_ROW as f32 * 0.5,
@@ -339,11 +339,11 @@ impl State {
             target: Point3::new(0.0, 0.0, 0.0),
             up: Vector3::new(0.0, 1.0, 0.0),
             aspect: 800.0 / 600.0,
-            fovy: 45.0,
+            fovy: 35.0,
             znear: 0.1,
-            zfar: 250.0,
+            zfar: 500.0,
         };
-        let camera_controller = camera::CameraController::new(1.0, 0.5, 1.0);
+        let camera_controller = camera::CameraController::new(1.0, 1.0, 2.0);
 
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update(&camera);

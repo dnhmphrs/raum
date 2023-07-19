@@ -43,8 +43,8 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let scale = 0.02;
-    let pos = ( in.world_pos * scale ) + 0.05;
+    let scale = 0.01;
+    let pos = ( in.world_pos * scale );
 
     return vec4<f32>(pos.x, pos.y, pos.z, 1.0);
 }
