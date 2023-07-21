@@ -34,7 +34,7 @@ fn vs_main(
         instance.model_matrix_3,
     );
     var out: VertexOutput;
-    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 0.9);
+    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 0.85);
     out.world_pos = (model_matrix * vec4<f32>(model.position, 1.0)).xyz;  // Compute the world position.
     return out;
 }
@@ -43,7 +43,7 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let scale = 0.1;
+    let scale = 0.09;
     let pos = ( in.world_pos * scale );
 
     return vec4<f32>(pos.x, pos.y, pos.z, 1.0);

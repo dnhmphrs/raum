@@ -47,28 +47,28 @@ impl Vertex {
 
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [-0.05, -0.05, -0.05],
+        position: [-0.035, -0.035, -0.035],
     },
     Vertex {
-        position: [-0.05, -0.05, 0.05],
+        position: [-0.035, -0.035, 0.035],
     },
     Vertex {
-        position: [-0.05, 0.05, -0.05],
+        position: [-0.035, 0.035, -0.035],
     },
     Vertex {
-        position: [-0.05, 0.05, 0.05],
+        position: [-0.035, 0.035, 0.035],
     },
     Vertex {
-        position: [0.05, -0.05, -0.05],
+        position: [0.035, -0.035, -0.035],
     },
     Vertex {
-        position: [0.05, -0.05, 0.05],
+        position: [0.035, -0.035, 0.035],
     },
     Vertex {
-        position: [0.05, 0.05, -0.05],
+        position: [0.035, 0.035, -0.035],
     },
     Vertex {
-        position: [0.05, 0.05, 0.05],
+        position: [0.035, 0.035, 0.035],
     },
 ];
 
