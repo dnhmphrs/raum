@@ -6,9 +6,13 @@ pub mod camera;
 pub mod geometry;
 pub mod renderer;
 pub mod texture;
+use app::window::WindowSize;
 use renderer::Renderer;
 
 mod app;
+
+const INITIAL_WINDOW_WIDTH: u32 = 800;
+const INITIAL_WINDOW_HEIGHT: u32 = 600;
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub async fn run() {
@@ -22,10 +26,16 @@ pub async fn run() {
     }
 
     let event_loop = EventLoop::new();
-    let window = app::window::create_window(&event_loop);
-    let mut state = Renderer::new(window).await;
+
+    let initial_size = WindowSize {
+        width: INITIAL_WINDOW_WIDTH,
+        height: INITIAL_WINDOW_HEIGHT,
+    };
+
+    let window = app::window::create_window(&event_loop, initial_size);
+    let mut renderer = Renderer::new(window).await;
 
     event_loop.run(move |event, _, control_flow| {
-        app::event::handle_event(event, &mut state, control_flow);
+        app::event::handle_event(event, &mut renderer, control_flow);
     });
 }

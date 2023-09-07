@@ -4,10 +4,12 @@ use winit::{dpi::PhysicalSize, event_loop::EventLoop};
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
-const WINDOW_WIDTH: u32 = 800;
-const WINDOW_HEIGHT: u32 = 600;
+pub struct WindowSize {
+    pub width: u32,
+    pub height: u32,
+}
 
-pub fn create_window(event_loop: &EventLoop<()>) -> Window {
+pub fn create_window(event_loop: &EventLoop<()>, initial_size: WindowSize) -> Window {
     let img = include_bytes!("../../res/icon.png");
     let icon = image::load_from_memory(img).unwrap();
 
@@ -21,7 +23,7 @@ pub fn create_window(event_loop: &EventLoop<()>) -> Window {
     {
         // Winit prevents sizing with CSS, so we have to set
         // the size manually when on web.
-        window.set_inner_size(PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT));
+        window.set_inner_size(PhysicalSize::new(initial_size.width, initial_size.height));
 
         window.set_window_icon(Some(
             Icon::from_rgba(icon.to_rgba8().into_raw(), icon.width(), icon.height()).unwrap(),
@@ -67,8 +69,8 @@ pub async fn create_surface_and_config(
     let config = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: surface_format,
-        width: WINDOW_WIDTH,
-        height: WINDOW_HEIGHT,
+        width: window.inner_size().width,
+        height: window.inner_size().height,
         present_mode: surface_caps.present_modes[0],
         alpha_mode: surface_caps.alpha_modes[0],
         view_formats: vec![],
