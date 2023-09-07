@@ -12,161 +12,12 @@ use winit::{
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-// mod model;
-// mod resources;
 mod camera;
+mod geometry;
 mod texture;
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: [f32; 3],
-}
-
-impl Vertex {
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Vertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float32x3,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
-            ],
-        }
-    }
-}
-
-const VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [-0.035, -0.035, -0.035],
-    },
-    Vertex {
-        position: [-0.035, -0.035, 0.035],
-    },
-    Vertex {
-        position: [-0.035, 0.035, -0.035],
-    },
-    Vertex {
-        position: [-0.035, 0.035, 0.035],
-    },
-    Vertex {
-        position: [0.035, -0.035, -0.035],
-    },
-    Vertex {
-        position: [0.035, -0.035, 0.035],
-    },
-    Vertex {
-        position: [0.035, 0.035, -0.035],
-    },
-    Vertex {
-        position: [0.035, 0.035, 0.035],
-    },
-];
-
-const INDICES: &[u16] = &[
-    0, 1, 2, // front face
-    2, 1, 3, 4, 5, 6, // back face
-    6, 5, 7, 0, 1, 4, // bottom face
-    4, 1, 5, 2, 3, 6, // top face
-    6, 3, 7, 0, 2, 4, // left face
-    4, 2, 6, 1, 3, 5, // right face
-    5, 3, 7,
-];
-
-const NUM_INSTANCES_PER_ROW: u32 = 100;
-const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-);
-
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct CameraUniform {
-    view_proj: [[f32; 4]; 4],
-}
-
-impl CameraUniform {
-    fn new() -> Self {
-        Self {
-            view_proj: camera::OPENGL_TO_WGPU_MATRIX.into(),
-        }
-    }
-
-    fn update(&mut self, camera: &camera::Camera) {
-        self.view_proj = camera.build_view_projection_matrix().into();
-    }
-}
-
-struct Instance {
-    position: cgmath::Vector3<f32>,
-    rotation: cgmath::Quaternion<f32>,
-}
-
-impl Instance {
-    fn to_raw(&self) -> InstanceRaw {
-        InstanceRaw {
-            model: (cgmath::Matrix4::from_translation(self.position)
-                * cgmath::Matrix4::from(self.rotation))
-            .into(),
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct InstanceRaw {
-    #[allow(dead_code)]
-    model: [[f32; 4]; 4],
-}
-
-impl InstanceRaw {
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<InstanceRaw>() as wgpu::BufferAddress,
-            // We need to switch from using a step mode of Vertex to Instance
-            // This means that our shaders will only change to use the next
-            // instance when the shader starts processing a new instance
-            step_mode: wgpu::VertexStepMode::Instance,
-            attributes: &[
-                wgpu::VertexAttribute {
-                    offset: 0,
-                    // While our vertex shader only uses locations 0, and 1 now, in later tutorials we'll
-                    // be using 2, 3, and 4, for Vertex. We'll start at slot 5 not conflict with them later
-                    shader_location: 5,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                // A mat4 takes up 4 vertex slots as it is technically 4 vec4s. We need to define a slot
-                // for each vec4. We don't have to do this in code though.
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 4]>() as wgpu::BufferAddress,
-                    shader_location: 6,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 8]>() as wgpu::BufferAddress,
-                    shader_location: 7,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<[f32; 12]>() as wgpu::BufferAddress,
-                    shader_location: 8,
-                    format: wgpu::VertexFormat::Float32x4,
-                },
-            ],
-        }
-    }
-}
+use geometry::instance::{Instance, InstanceRaw, INSTANCE_DISPLACEMENT, NUM_INSTANCES_PER_ROW};
+use geometry::vertex::{Vertex, INDICES, VERTICES};
 
 struct State {
     window: Window,
@@ -185,7 +36,7 @@ struct State {
     // diffuse_bind_group: wgpu::BindGroup,
     camera: camera::Camera,
     camera_controller: camera::CameraController,
-    camera_uniform: CameraUniform,
+    camera_uniform: camera::CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     instances: Vec<Instance>,
@@ -201,7 +52,7 @@ impl State {
         // let mut last_render_time = instant::Instant::now();
 
         // add window icon
-        let img = include_bytes!("./assets/icon.png");
+        let img = include_bytes!("../res/icon.png");
         let icon = image::load_from_memory(img).unwrap();
         window.set_window_icon(Some(
             Icon::from_rgba(icon.to_rgba8().into_raw(), icon.width(), icon.height()).unwrap(),
@@ -345,7 +196,7 @@ impl State {
         };
         let camera_controller = camera::CameraController::new(1.0, 1.0, 2.0);
 
-        let mut camera_uniform = CameraUniform::new();
+        let mut camera_uniform = camera::CameraUniform::new();
         camera_uniform.update(&camera);
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -380,7 +231,7 @@ impl State {
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("shaders/shader.wgsl").into()),
         });
 
         let depth_texture =
