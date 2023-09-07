@@ -3,10 +3,7 @@ use std::iter;
 use cgmath::prelude::*;
 use cgmath::*;
 use wgpu::util::DeviceExt;
-use winit::{
-    event::*,
-    window::{Icon, Window},
-};
+use winit::{event::*, window::Window};
 
 use crate::camera;
 use crate::geometry;
@@ -46,16 +43,6 @@ impl State {
     pub async fn new(window: Window) -> Self {
         let size = window.inner_size();
         // let mut last_render_time = instant::Instant::now();
-
-        // add window icon
-        let img = include_bytes!("../../res/icon.png");
-        let icon = image::load_from_memory(img).unwrap();
-        window.set_window_icon(Some(
-            Icon::from_rgba(icon.to_rgba8().into_raw(), icon.width(), icon.height()).unwrap(),
-        ));
-
-        // add window title
-        window.set_title(" Raum");
 
         // The instance is a handle to our GPU
         // BackendBit::PRIMARY => Vulkan + Metal + DX12 + Browser WebGPU
