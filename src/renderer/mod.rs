@@ -13,6 +13,8 @@ use crate::texture;
 use geometry::instance::{Instance, InstanceRaw, INSTANCE_DISPLACEMENT, NUM_INSTANCES_PER_ROW};
 use geometry::vertex::{Vertex, INDICES, VERTICES};
 
+use camera::controller::CameraController;
+
 pub struct Renderer {
     window: Window,
     surface: wgpu::Surface,
@@ -25,8 +27,8 @@ pub struct Renderer {
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     camera: camera::Camera,
-    pub camera_controller: camera::CameraController,
-    camera_uniform: camera::CameraUniform,
+    pub camera_controller: CameraController,
+    camera_uniform: camera::uniform::CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     instances: Vec<Instance>,
@@ -38,14 +40,37 @@ pub struct Renderer {
 
 impl Renderer {
     pub async fn new(window: Window) -> Self {
+        // size, instance
         let size = window.inner_size();
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
             backends: wgpu::Backends::all(),
             dx12_shader_compiler: Default::default(),
         });
 
+        // surface, device, and queue
         let (surface, config) = window::create_surface_and_config(&instance, &window).await;
         let (device, queue) = window::create_device_and_queue(&instance, &surface).await;
+
+        // camera
+        let camera = camera::Camera {
+            eye: Point3::new(200.0, 200.0, 200.0),
+            target: Point3::new(0.0, 0.0, 0.0),
+            up: Vector3::new(0.0, 1.0, 0.0),
+            aspect: 800.0 / 600.0,
+            fovy: 30.0,
+            znear: 0.1,
+            zfar: 500.0,
+        };
+        let camera_controller = CameraController::new(1.0, 1.0, 2.0);
+
+        // camera uniform, buffer, and bind group
+        let mut camera_uniform = camera::uniform::CameraUniform::new();
+        camera_uniform.update(&camera);
+
+        let camera_buffer = camera::binding::create_camera_buffer(&device, &camera_uniform);
+        let camera_bind_group_layout = camera::binding::create_bind_group_layout(&device);
+        let camera_bind_group =
+            camera::binding::create_bind_group(&device, &camera_buffer, &camera_bind_group_layout);
 
         // let texture_bind_group_layout =
         //     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -108,51 +133,6 @@ impl Renderer {
             label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&instance_data),
             usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        // camera
-        let camera = camera::Camera {
-            eye: Point3::new(200.0, 200.0, 200.0),
-            target: Point3::new(0.0, 0.0, 0.0),
-            up: Vector3::new(0.0, 1.0, 0.0),
-            aspect: 800.0 / 600.0,
-            fovy: 30.0,
-            znear: 0.1,
-            zfar: 500.0,
-        };
-        let camera_controller = camera::CameraController::new(1.0, 1.0, 2.0);
-
-        let mut camera_uniform = camera::CameraUniform::new();
-        camera_uniform.update(&camera);
-
-        let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Camera Buffer"),
-            contents: bytemuck::cast_slice(&[camera_uniform]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let camera_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: None,
-                    },
-                    count: None,
-                }],
-                label: Some("camera_bind_group_layout"),
-            });
-
-        let camera_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &camera_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: camera_buffer.as_entire_binding(),
-            }],
-            label: Some("camera_bind_group"),
         });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
