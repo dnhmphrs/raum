@@ -28,28 +28,28 @@ impl Vertex {
 
 pub const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [-0.035, -0.035, -0.035],
+        position: [-0.5, -0.5, -0.5],
     },
     Vertex {
-        position: [-0.035, -0.035, 0.035],
+        position: [-0.5, -0.5, 0.5],
     },
     Vertex {
-        position: [-0.035, 0.035, -0.035],
+        position: [-0.5, 0.5, -0.5],
     },
     Vertex {
-        position: [-0.035, 0.035, 0.035],
+        position: [-0.5, 0.5, 0.5],
     },
     Vertex {
-        position: [0.035, -0.035, -0.035],
+        position: [0.5, -0.5, -0.5],
     },
     Vertex {
-        position: [0.035, -0.035, 0.035],
+        position: [0.5, -0.5, 0.5],
     },
     Vertex {
-        position: [0.035, 0.035, -0.035],
+        position: [0.5, 0.5, -0.5],
     },
     Vertex {
-        position: [0.035, 0.035, 0.035],
+        position: [0.5, 0.5, 0.5],
     },
 ];
 

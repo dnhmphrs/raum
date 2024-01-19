@@ -34,7 +34,7 @@ fn vs_main(
         instance.model_matrix_3,
     );
     var out: VertexOutput;
-    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 0.85);
+    out.clip_position = camera.view_proj * model_matrix * vec4<f32>(model.position, 1.0);
     out.world_pos = (model_matrix * vec4<f32>(model.position, 1.0)).xyz;  // Compute the world position.
     return out;
 }
@@ -43,8 +43,40 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let scale = 0.09;
-    let pos = ( in.world_pos * scale );
+    let scale = 0.015; // Adjusted scale factor for the pattern
+    let clip_pos_truncated = vec3<f32>(in.clip_position.x, in.clip_position.y, in.clip_position.z);
+    let adjusted_pos = abs(in.world_pos + clip_pos_truncated * scale);
 
-    return vec4<f32>(pos.x, pos.y, pos.z, 1.0);
+
+    // Updated pattern calculation to create more variation
+    let pattern1 = log(sin(dot(adjusted_pos, adjusted_pos) * 0.1));
+    let pattern2 = log(cos(dot(adjusted_pos, adjusted_pos) * 0.1));
+    let pattern3 = log(tan(dot(adjusted_pos, adjusted_pos) * 0.1));
+
+    // Map the pattern to a color range
+    let color1 = 0.5 + 0.5 * pattern1;
+    let color2 = 0.5 + 0.5 * pattern2;
+    let color3 = 0.5 + 0.5 * pattern3;
+    let final_color = vec4<f32>(color1, color2, color3, 1.0); // Grayscale color
+
+    return final_color;
 }
+
+
+
+
+// @fragment
+// fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+//     var temp_pos = in.world_pos;
+//     let mut pattern = 0.0;
+
+//     for _ in 0..5 {
+//         temp_pos = abs(temp_pos) / dot(temp_pos, temp_pos) - 1.5;
+//         pattern += abs(dot(temp_pos, temp_pos));
+//     }
+
+//     let color = 0.5 + 0.5 * cos(pattern);
+//     let final_color = vec4<f32>(color, color * 0.7, color * 0.5, 1.0);
+
+//     return final_color;
+// }
