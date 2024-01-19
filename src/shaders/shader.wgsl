@@ -43,21 +43,21 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let scale = 0.015; // Adjusted scale factor for the pattern
+    let scale = 0.0025; // Adjusted scale factor for the pattern
     let clip_pos_truncated = vec3<f32>(in.clip_position.x, in.clip_position.y, in.clip_position.z);
-    let adjusted_pos = abs(in.world_pos + clip_pos_truncated * scale);
+    let adjusted_pos = abs(in.world_pos * clip_pos_truncated * scale);
 
 
     // Updated pattern calculation to create more variation
-    let pattern1 = log(sin(dot(adjusted_pos, adjusted_pos) * 0.1));
-    let pattern2 = log(cos(dot(adjusted_pos, adjusted_pos) * 0.1));
-    let pattern3 = log(tan(dot(adjusted_pos, adjusted_pos) * 0.1));
+    let pattern1 = log(sin(dot(adjusted_pos, adjusted_pos) * 0.025));
+    let pattern2 = log(cos(dot(adjusted_pos, adjusted_pos) * 0.025));
+    let pattern3 = log(tan(dot(adjusted_pos, adjusted_pos) * 0.025));
 
     // Map the pattern to a color range
     let color1 = 0.5 + 0.5 * pattern1;
     let color2 = 0.5 + 0.5 * pattern2;
     let color3 = 0.5 + 0.5 * pattern3;
-    let final_color = vec4<f32>(color1, color2, color3, 1.0); // Grayscale color
+    let final_color = vec4<f32>(1.0 - color1,1.0 -  color2,1.0 -  color3, 1.0); // Grayscale color
 
     return final_color;
 }
