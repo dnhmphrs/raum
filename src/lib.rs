@@ -3,7 +3,6 @@ use wasm_bindgen::prelude::*;
 use winit::event_loop::EventLoop;
 
 pub mod camera;
-pub mod geometry;
 pub mod renderer;
 pub mod texture;
 use app::window::WindowSize;

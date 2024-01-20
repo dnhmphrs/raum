@@ -22,6 +22,8 @@ log = "0.4"
 wgpu = "0.16"
 winit = "0.28"
 instant = "0.1"
+rand = "0.8"
+lazy_static = "1.4.0"
 
 [dependencies.image]
 version = "0.24"
