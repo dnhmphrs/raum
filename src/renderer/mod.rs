@@ -325,7 +325,7 @@ impl Renderer {
 
         // camera
         let camera = camera::Camera {
-            eye: Point3::new(30.0, 30.0, 30.0),
+            eye: Point3::new(-30.0, 0.0, 40.0),
             target: Point3::new(0.0, 0.0, 0.0),
             up: Vector3::new(0.0, 1.0, 0.0),
             aspect: 800.0 / 600.0,

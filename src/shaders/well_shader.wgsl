@@ -24,7 +24,7 @@ var<uniform> time: TimeUniform;
 @vertex
 fn vs_main(vertex: VertexInput) -> VertexOutput {
     var out: VertexOutput;
-    out.clip_position = camera.view_proj * vec4<f32>(vertex.position, 1.0);
+    out.clip_position = camera.view_proj * vec4<f32>(vertex.position * 1.25, 1.0);
     return out;
 }
 

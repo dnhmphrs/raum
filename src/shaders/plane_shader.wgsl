@@ -28,7 +28,7 @@ fn vs_main(
     @location(1) displacement: f32, // Add displacement as an input attribute
 ) -> VertexOutput {
     var out: VertexOutput;
-    let new_displacement = displacement * atan(sin(time.time) * 2.5);
+    let new_displacement = displacement * atan(cos(time.time) * 2.5);
     let displaced_position = vec3<f32>(model.position.x, model.position.y + new_displacement, model.position.z);
     out.clip_position = camera.view_proj * vec4<f32>(displaced_position, 1.0);
     out.world_pos = displaced_position;

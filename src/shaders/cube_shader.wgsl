@@ -43,7 +43,7 @@ fn vs_main(
     //     instance.model_matrix_3,
     // );
     var out: VertexOutput;
-    out.clip_position = camera.view_proj * vec4<f32>(model.position, 1.0);
+    out.clip_position = camera.view_proj * vec4<f32>(model.position * 1.25, 1.0);
     out.world_pos = (vec4<f32>(model.position, 1.0)).xyz;  // Compute the world position.
     return out;
 }
