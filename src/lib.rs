@@ -33,6 +33,7 @@ pub async fn run() {
 
     let window = app::window::create_window(&event_loop, initial_size);
     let mut renderer = Renderer::new(window).await;
+    renderer.update_plane_vertices();
 
     event_loop.run(move |event, _, control_flow| {
         app::event::handle_event(event, &mut renderer, control_flow);

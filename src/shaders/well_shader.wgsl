@@ -20,6 +20,7 @@ struct TimeUniform {
 @group(1) @binding(0)
 var<uniform> time: TimeUniform;
 
+
 @vertex
 fn vs_main(vertex: VertexInput) -> VertexOutput {
     var out: VertexOutput;
@@ -28,6 +29,21 @@ fn vs_main(vertex: VertexInput) -> VertexOutput {
 }
 
 @fragment
-fn fs_main() -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    let speed = 5.0; // Control the speed of the rain
+    let repeat_y = 250.0; // The height at which the rain repeats
+
+    // Calculate the raindrop effect
+    let y_effect = fract(in.clip_position.y / repeat_y - time.time * speed);
+// Initialize opacity
+    var opacity: f32 = 0.0;
+
+    // Determine the opacity based on y_effect
+    if (y_effect < 0.5) {
+        opacity = 1.0;
+    } else {
+        opacity = 0.0;
+    }
+
+    return vec4<f32>(1.0, 0.0, 0.0, opacity);
 }

@@ -3,6 +3,7 @@ use std::iter;
 // use cgmath::prelude::*;
 use cgmath::*;
 use rand::Rng;
+use std::time::Instant;
 use wgpu::util::DeviceExt;
 use winit::{dpi::PhysicalSize, event::*, window::Window};
 
@@ -14,6 +15,16 @@ use crate::texture;
 // use geometry::vertex::{Vertex, INDICES, VERTICES};
 
 use camera::controller::CameraController;
+
+// --------------------------------------
+// time
+// --------------------------------------
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct TimeUniform {
+    time: f32,
+}
 
 // --------------------------------------
 // main cube
@@ -236,14 +247,14 @@ const CUBE_EDGE_INDICES: &[u16] = &[
 // --------------------------------------
 
 const NUM_LINES: usize = 10;
-const VERTICES_PER_LINE: usize = 10;
+const VERTICES_PER_LINE: usize = 2; // just 2
 
 fn generate_line_vertices() -> Vec<LineVertex> {
     let mut vertices = Vec::new();
     for line_index in 0..NUM_LINES {
         let x_position = line_index as f32 - (NUM_LINES as f32 / 2.0) + 0.5; // Spread lines along the x-axis
         for vertex_index in 0..VERTICES_PER_LINE {
-            let y_position = vertex_index as f32 - 4.5; // Vertical position
+            let y_position = vertex_index as f32 * 10.0 - 5.0; // Vertical position
             vertices.push(LineVertex {
                 position: [x_position, y_position, 0.0], // All lines are along the z-axis
             });
@@ -271,6 +282,12 @@ pub struct Renderer {
     // instances: Vec<Instance>,
     // instance_buffer: wgpu::Buffer,
     depth_texture: crate::texture::Texture,
+    // time
+    start_time: Instant,
+    current_time: f32,
+    time_scale: f32,
+    time_buffer: wgpu::Buffer,
+    time_bind_group: wgpu::BindGroup,
     // plane
     plane_render_pipeline: wgpu::RenderPipeline,
     plane_vertex_buffer: wgpu::Buffer,
@@ -282,12 +299,14 @@ pub struct Renderer {
     line_index_buffer: wgpu::Buffer,
     num_line_indices: u32,
     // wells
+    well_render_pipeline: wgpu::RenderPipeline,
     well_vertex_buffer: wgpu::Buffer,
     well_index_buffer: wgpu::Buffer,
     well_num_line_indices: u32,
     // interactions
     pub mouse_pressed: bool,
     render_plane: bool,
+    animations: bool,
     pub mouse_released: bool,
 }
 
@@ -312,9 +331,17 @@ impl Renderer {
             aspect: 800.0 / 600.0,
             fovy: 20.0,
             znear: 0.1,
-            zfar: 100.0,
+            zfar: 200.0,
         };
         let camera_controller = CameraController::new(1.0, 1.0, 2.0);
+
+        // time uniform
+        let time_uniform = TimeUniform { time: 0.0 };
+        let time_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Time Buffer"),
+            contents: bytemuck::cast_slice(&[time_uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
 
         // camera uniform, buffer, and bind group
         let mut camera_uniform = camera::uniform::CameraUniform::new();
@@ -324,6 +351,35 @@ impl Renderer {
         let camera_bind_group_layout = camera::binding::create_bind_group_layout(&device);
         let camera_bind_group =
             camera::binding::create_bind_group(&device, &camera_buffer, &camera_bind_group_layout);
+
+        // time
+        let start_time = Instant::now();
+
+        let time_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Time Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: wgpu::BufferSize::new(
+                            std::mem::size_of::<TimeUniform>() as _
+                        ),
+                    },
+                    count: None,
+                }],
+            });
+
+        let time_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &time_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: time_buffer.as_entire_binding(),
+            }],
+            label: Some("Time Bind Group"),
+        });
 
         // let texture_bind_group_layout =
         //     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -388,9 +444,9 @@ impl Renderer {
         //     usage: wgpu::BufferUsages::VERTEX,
         // });
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        let cube_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/shader.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/cube_shader.wgsl").into()),
         });
 
         let depth_texture =
@@ -399,7 +455,7 @@ impl Renderer {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout],
+                bind_group_layouts: &[&camera_bind_group_layout, &time_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -407,12 +463,12 @@ impl Renderer {
             label: Some("Render Pipeline"),
             layout: Some(&render_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: &cube_shader,
                 entry_point: "vs_main",
                 buffers: &[Vertex::desc()],
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
+                module: &cube_shader,
                 entry_point: "fs_main",
                 targets: &[Some(wgpu::ColorTargetState {
                     format: config.format,
@@ -631,6 +687,65 @@ impl Renderer {
             usage: wgpu::BufferUsages::INDEX,
         });
 
+        let well_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/well_shader.wgsl").into()),
+        });
+
+        let well_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &well_shader,
+                entry_point: "vs_main",
+                buffers: &[LineVertex::desc()],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &well_shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent {
+                            src_factor: wgpu::BlendFactor::SrcAlpha,
+                            dst_factor: wgpu::BlendFactor::One,
+                            operation: wgpu::BlendOperation::Add,
+                        },
+                        alpha: wgpu::BlendComponent::REPLACE, // Or another suitable operation for alpha
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::LineList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: None,
+                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                // or Features::POLYGON_MODE_POINT
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            // If the pipeline will be used with a multiview render pass, this
+            // indicates how many array layers the attachments will have.
+            multiview: None,
+        });
+
         Self {
             window,
             surface,
@@ -653,6 +768,12 @@ impl Renderer {
             // instances,
             // instance_buffer,
             depth_texture,
+            // Time
+            start_time,
+            current_time: 0.0,
+            time_scale: 0.05,
+            time_buffer,
+            time_bind_group,
             // plane
             plane_render_pipeline,
             plane_vertex_buffer,
@@ -664,12 +785,14 @@ impl Renderer {
             line_index_buffer,
             num_line_indices,
             // well
+            well_render_pipeline,
             well_vertex_buffer,
             well_index_buffer,
             well_num_line_indices,
             // interactions
             mouse_pressed: false,
-            render_plane: false,
+            animations: true,
+            render_plane: true,
             mouse_released: false,
         }
     }
@@ -716,6 +839,7 @@ impl Renderer {
                 // plane
                 render_pass.set_pipeline(&self.plane_render_pipeline);
                 render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+                render_pass.set_bind_group(1, &self.time_bind_group, &[]); // Use the correct index for the bind group
 
                 render_pass.set_vertex_buffer(0, self.plane_vertex_buffer.slice(..));
                 render_pass
@@ -724,13 +848,17 @@ impl Renderer {
                 // cube
                 render_pass.set_pipeline(&self.line_render_pipeline); // Use the line rendering pipeline
                 render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+                render_pass.set_bind_group(1, &self.time_bind_group, &[]); // Use the correct index for the bind group
+
                 render_pass.set_vertex_buffer(0, self.line_vertex_buffer.slice(..));
                 render_pass
                     .set_index_buffer(self.line_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                 render_pass.draw_indexed(0..self.num_line_indices, 0, 0..1);
                 // wells
-                render_pass.set_pipeline(&self.line_render_pipeline); // Use the line rendering pipeline
+                render_pass.set_pipeline(&self.well_render_pipeline); // Use the line rendering pipeline
                 render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+                render_pass.set_bind_group(1, &self.time_bind_group, &[]); // Use the correct index for the bind group
+
                 render_pass.set_vertex_buffer(0, self.well_vertex_buffer.slice(..));
                 render_pass
                     .set_index_buffer(self.well_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
@@ -738,6 +866,8 @@ impl Renderer {
             } else {
                 render_pass.set_pipeline(&self.render_pipeline);
                 render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
+                render_pass.set_bind_group(1, &self.time_bind_group, &[]); // Use the correct index for the bind group
+
                 render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
                 render_pass
                     .set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
@@ -812,7 +942,22 @@ impl Renderer {
             } => {
                 if *state == ElementState::Pressed {
                     self.render_plane = !self.render_plane;
-                    self.update_plane_vertices();
+                    // self.update_plane_vertices();
+                }
+                true
+            }
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state,
+                        virtual_keycode: Some(VirtualKeyCode::Return),
+                        ..
+                    },
+                ..
+            } => {
+                if *state == ElementState::Pressed {
+                    self.animations = !self.animations;
+                    // self.update_plane_vertices();
                 }
                 true
             }
@@ -844,6 +989,20 @@ impl Renderer {
     pub fn update(&mut self) {
         self.camera_controller.update_camera(&mut self.camera);
         self.camera_uniform.update(&self.camera);
+
+        if self.animations {
+            let elapsed = self.start_time.elapsed();
+            let scaled_time = elapsed.as_secs_f32() * self.time_scale; // Scale the time
+            self.current_time = scaled_time;
+        }
+
+        self.queue.write_buffer(
+            &self.time_buffer,
+            0,
+            bytemuck::cast_slice(&[TimeUniform {
+                time: self.current_time,
+            }]),
+        );
 
         self.queue.write_buffer(
             &self.camera_buffer,
