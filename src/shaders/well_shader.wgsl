@@ -40,7 +40,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     // Determine the opacity based on y_effect
     if (y_effect < 0.5) {
-        opacity = 1.0;
+        opacity = opacity + y_effect * 2.0;
     } else {
         opacity = 0.0;
     }

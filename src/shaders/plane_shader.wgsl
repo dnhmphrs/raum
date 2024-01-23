@@ -35,7 +35,7 @@ fn vs_main(
     let cos_wave = cos(model.position.z * 0.5 - time_factor) * 0.3;
     let combined_wave = sin_wave + cos_wave;
 
-    let new_displacement = displacement * combined_wave + atan(time.time) - 0.5;
+    let new_displacement = displacement * combined_wave;
 
     let displaced_position = vec3<f32>(model.position.x, model.position.y + new_displacement, model.position.z);
     out.clip_position = camera.view_proj * vec4<f32>(displaced_position, 1.0);
@@ -46,19 +46,19 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let scale = 0.0025;
+    let scale = 0.025;
     let clip_pos_truncated = vec3<f32>(in.clip_position.x, in.clip_position.y, in.clip_position.z);
-    let adjusted_pos = abs(in.world_pos * clip_pos_truncated * scale * (sin(time.time) * 0.25 + 0.75));
+    let adjusted_pos = abs(in.world_pos * clip_pos_truncated * scale * (sin(time.time * 0.0001) * 0.05 + 0.75));
 
-    let pattern1 = log(sin(dot(adjusted_pos, adjusted_pos) * 0.1));
-    let pattern2 = log(cos(dot(adjusted_pos, adjusted_pos) * 0.1));
-    let pattern3 = log(tan(dot(adjusted_pos, adjusted_pos) * 0.1));
+    let pattern1 = log(sin(dot(adjusted_pos, adjusted_pos) * 0.01));
+    let pattern2 = log(cos(dot(adjusted_pos, adjusted_pos) * 0.01));
+    let pattern3 = log(tan(dot(adjusted_pos, adjusted_pos) * 1.0));
 
     let color1 = 0.5 + 0.5 * pattern1;
     let color2 = 0.5 + 0.5 * pattern2;
-    let color3 = 0.5 + 0.5 * pattern3;
+    let color3 = pattern3;
     
-    let final_color = vec4<f32>(color2 - 0.5, 1.0 - color2, color3, 1.0);
+    let final_color = vec4<f32>(color2 * color3 - 0.5, 1.0 - color2 * color3, color3, 1.0);
 
     return final_color;
 }

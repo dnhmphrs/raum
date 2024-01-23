@@ -43,13 +43,12 @@ fn vs_main(
     //     instance.model_matrix_3,
     // );
     var out: VertexOutput;
-    out.clip_position = camera.view_proj * vec4<f32>(model.position, 1.0);
+    out.clip_position = camera.view_proj * vec4<f32>(model.position * 0.5, 1.0);
     out.world_pos = (vec4<f32>(model.position, 1.0)).xyz;  // Compute the world position.
     return out;
 }
 
 // Fragment shader
-
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let scale = 0.0025; // Adjusted scale factor for the pattern
@@ -72,22 +71,3 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
     return final_color;
 }
-
-
-
-
-// @fragment
-// fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-//     var temp_pos = in.world_pos;
-//     let mut pattern = 0.0;
-
-//     for _ in 0..5 {
-//         temp_pos = abs(temp_pos) / dot(temp_pos, temp_pos) - 1.5;
-//         pattern += abs(dot(temp_pos, temp_pos));
-//     }
-
-//     let color = 0.5 + 0.5 * cos(pattern);
-//     let final_color = vec4<f32>(color, color * 0.7, color * 0.5, 1.0);
-
-//     return final_color;
-// }
