@@ -31,7 +31,7 @@ fn vs_main(vertex: VertexInput) -> VertexOutput {
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let speed = 5.0; // Control the speed of the rain
-    let repeat_y = 250.0; // The height at which the rain repeats
+    let repeat_y = 100.0; // The height at which the rain repeats
 
     // Calculate the raindrop effect
     let y_effect = fract(in.clip_position.y / repeat_y - time.time * speed);

@@ -325,7 +325,7 @@ impl Renderer {
 
         // camera
         let camera = camera::Camera {
-            eye: Point3::new(30.0, 30.0, 30.0),
+            eye: Point3::new(30.0, 20.0, 30.0),
             target: Point3::new(0.0, 0.0, 0.0),
             up: Vector3::new(0.0, 1.0, 0.0),
             aspect: 800.0 / 600.0,
@@ -893,10 +893,11 @@ impl Renderer {
             .sqrt();
 
             let wave_frequency = 0.05 + Rng::gen_range(&mut rand::thread_rng(), 0.0..0.01);
+            let wave_frequency_2 = 0.5 + Rng::gen_range(&mut rand::thread_rng(), 0.0..0.01);
             // Calculate the displacement using a Gaussian-like function
             let displacement = peak_height
-                * (vertex.position[0] * wave_frequency * distance).sin()
-                * (vertex.position[2] * wave_frequency * distance).cos();
+                * (vertex.position[0] * wave_frequency - wave_frequency_2 * distance).sin()
+                * (vertex.position[2] * wave_frequency - wave_frequency_2 * distance).cos();
 
             new_vertices.push(PlaneVertex {
                 position: vertex.position,

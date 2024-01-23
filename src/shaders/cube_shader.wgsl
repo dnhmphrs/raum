@@ -58,15 +58,17 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
 
     // Updated pattern calculation to create more variation
-    let pattern1 = log(sin(dot(adjusted_pos, adjusted_pos) * 0.025));
-    let pattern2 = log(cos(dot(adjusted_pos, adjusted_pos) * 0.025));
-    let pattern3 = log(tan(dot(adjusted_pos, adjusted_pos) * 0.025));
+    let pattern1 = log(sin(dot(adjusted_pos, adjusted_pos) * 0.1));
+    let pattern2 = log(cos(dot(adjusted_pos, adjusted_pos) * 0.1));
+    let pattern3 = log(tan(dot(adjusted_pos, adjusted_pos) * 0.1));
 
     // Map the pattern to a color range
     let color1 = 0.5 + 0.5 * pattern1 ;
     let color2 = 0.5 + 0.5 * pattern2 ;
     let color3 = 0.5 + 0.5 * pattern3 ;
-    let final_color = vec4<f32>(1.0 - color1,1.0 -  color2,1.0 -  color3, 1.0); // Grayscale color
+    
+    let final_color = vec4<f32>(color2 - 0.5, 1.0 - color2, color3, 1.0);
+
 
     return final_color;
 }
