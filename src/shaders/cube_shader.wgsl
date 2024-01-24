@@ -69,7 +69,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 }
 
 // Fragment shader
-@fragment
+// @fragment
 // fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 //     let scale = 0.0025; // Adjusted scale factor for the pattern
 //     let clip_pos_truncated = vec3<f32>(in.clip_position.x, in.clip_position.y, in.clip_position.z);
