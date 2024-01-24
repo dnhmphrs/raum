@@ -46,7 +46,7 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let scale = 0.002;
+    let scale = 0.0015;
     let clip_pos_truncated = vec3<f32>(in.clip_position.x, in.clip_position.y, in.clip_position.z);
     let adjusted_pos = abs(in.world_pos * clip_pos_truncated * scale);
 
