@@ -2,6 +2,9 @@ use winit::window::{Icon, Window, WindowBuilder};
 use winit::{dpi::PhysicalSize, event_loop::EventLoop};
 
 #[cfg(target_arch = "wasm32")]
+use web_sys::window;
+
+#[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
 
 pub struct WindowSize {
@@ -15,6 +18,7 @@ pub fn create_window(event_loop: &EventLoop<()>, initial_size: WindowSize) -> Wi
 
     let title = env!("CARGO_PKG_NAME").to_uppercase();
     let window = WindowBuilder::new()
+        // .with_maximized(true)
         .with_title(title)
         .build(event_loop)
         .expect("Failed to create a window");
@@ -39,6 +43,14 @@ pub fn create_window(event_loop: &EventLoop<()>, initial_size: WindowSize) -> Wi
                 Some(())
             })
             .expect("Couldn't append canvas to document body.");
+
+        // #[cfg(target_arch = "wasm32")]
+        // if let Some(browser_window) = web_sys::window() {
+        //     let width = browser_window.inner_width().unwrap().as_f64().unwrap() as u32;
+        //     let height = browser_window.inner_height().unwrap().as_f64().unwrap() as u32;
+
+        //     window.set_inner_size(PhysicalSize::new(width, height));
+        // }
     }
 
     window
