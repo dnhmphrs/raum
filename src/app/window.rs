@@ -1,8 +1,8 @@
 use winit::window::{Icon, Window, WindowBuilder};
 use winit::{dpi::PhysicalSize, event_loop::EventLoop};
 
-#[cfg(target_arch = "wasm32")]
-use web_sys::window;
+// #[cfg(target_arch = "wasm32")]
+// use web_sys::window;
 
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::WindowExtWebSys;
