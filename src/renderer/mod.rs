@@ -2,8 +2,8 @@ use std::iter;
 
 // use cgmath::prelude::*;
 use cgmath::*;
+use instant::Instant;
 use rand::Rng;
-use std::time::Instant;
 use wgpu::util::DeviceExt;
 use winit::{dpi::PhysicalSize, event::*, window::Window};
 
@@ -24,6 +24,9 @@ use camera::controller::CameraController;
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct TimeUniform {
     time: f32,
+    _padding1: f32,
+    _padding2: f32,
+    _padding3: f32,
 }
 
 // --------------------------------------
@@ -336,7 +339,12 @@ impl Renderer {
         let camera_controller = CameraController::new(1.0, 1.0, 2.0);
 
         // time uniform
-        let time_uniform = TimeUniform { time: 0.0 };
+        let time_uniform = TimeUniform {
+            time: 0.0,
+            _padding1: 0.0,
+            _padding2: 0.0,
+            _padding3: 0.0,
+        };
         let time_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Time Buffer"),
             contents: bytemuck::cast_slice(&[time_uniform]),
@@ -1002,6 +1010,9 @@ impl Renderer {
             0,
             bytemuck::cast_slice(&[TimeUniform {
                 time: self.current_time,
+                _padding1: 0.0,
+                _padding2: 0.0,
+                _padding3: 0.0,
             }]),
         );
 

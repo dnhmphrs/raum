@@ -15,6 +15,9 @@ struct VertexOutput {
 
 struct TimeUniform {
     time: f32,
+    _padding1: f32,
+    _padding2: f32,
+    _padding3: f32,
 };
 
 @group(1) @binding(0)
