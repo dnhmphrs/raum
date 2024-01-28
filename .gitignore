@@ -5,3 +5,6 @@
 
 # Ignore Config
 .vscode
+
+# Ignore Data
+*.csv

@@ -14,6 +14,53 @@ use crate::texture;
 use camera::controller::CameraController;
 
 // --------------------------------------
+// read signal
+// --------------------------------------
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct SignalData {
+    time: f32,
+    slow_wave: f32,
+    delta_wave: f32,
+    theta_wave: f32,
+    alpha_wave: f32,
+    beta_wave: f32,
+    gamma_wave: f32,
+    swr: f32,
+    ied: f32,
+    composite_signal: f32,
+}
+
+use csv;
+use std::error::Error;
+use std::fs::File;
+
+fn read_signals_from_csv(file_path: &str) -> Result<Vec<SignalData>, Box<dyn Error>> {
+    let mut rdr = csv::Reader::from_reader(File::open(file_path)?);
+    let mut signals = Vec::new();
+
+    for result in rdr.records() {
+        let record = result?;
+        let signal_data = SignalData {
+            time: record[0].parse()?,
+            slow_wave: record[1].parse()?,
+            delta_wave: record[2].parse()?,
+            theta_wave: record[3].parse()?,
+            alpha_wave: record[4].parse()?,
+            beta_wave: record[5].parse()?,
+            gamma_wave: record[6].parse()?,
+            swr: record[7].parse()?,
+            ied: record[8].parse()?,
+            composite_signal: record[9].parse()?,
+        };
+        signals.push(signal_data);
+    }
+
+    Ok(signals)
+}
+
+// --------------------------------------
 // time
 // --------------------------------------
 
@@ -97,16 +144,16 @@ const CUBE_EDGE_INDICES: &[u16] = &[
 ];
 
 // --------------------------------------
-// wells
+// signals
 // --------------------------------------
 
-const NUM_LINES: usize = 4;
+const NUM_LINES: usize = 9;
 const VERTICES_PER_LINE: usize = 2; // just 2
 
 fn generate_line_vertices() -> Vec<LineVertex> {
     let mut vertices = Vec::new();
     for line_index in 0..NUM_LINES {
-        let z_position = line_index as f32 * 2.5 - (NUM_LINES as f32) + 0.25; // Spread lines along the x-axis
+        let z_position = line_index as f32 - (NUM_LINES as f32) * 0.5 + 0.5; // Spread lines along the x-axis
         for vertex_index in 0..VERTICES_PER_LINE {
             let x_position = vertex_index as f32 * 1000.0 - 500.0; // Vertical position
             vertices.push(LineVertex {
@@ -119,24 +166,52 @@ fn generate_line_vertices() -> Vec<LineVertex> {
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct WellInstance {
+struct SignalInstance {
     position: [f32; 3],
-    // Add other per-instance properties here if needed
+    signal_value: f32,
 }
 
-impl WellInstance {
+fn create_signal_instances(signals: &Vec<SignalData>) -> Vec<SignalInstance> {
+    signals
+        .iter()
+        .enumerate()
+        .map(|(index, signal)| {
+            let signal_value = match index {
+                0 => signal.slow_wave,
+                1 => signal.delta_wave,
+                2 => signal.theta_wave,
+                3 => signal.alpha_wave,
+                4 => signal.beta_wave,
+                5 => signal.gamma_wave,
+                6 => signal.swr,
+                7 => signal.ied,
+                8 => signal.composite_signal,
+                _ => 0.0,
+            };
+            SignalInstance {
+                position: [0.0, index as f32, 0.0],
+                signal_value,
+            }
+        })
+        .collect()
+}
+
+impl SignalInstance {
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
-            array_stride: std::mem::size_of::<WellInstance>() as wgpu::BufferAddress,
+            array_stride: std::mem::size_of::<SignalInstance>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &[
-                // Define attributes (e.g., position)
                 wgpu::VertexAttribute {
                     offset: 0,
-                    shader_location: 1, // Use the next available shader location
+                    shader_location: 1,
                     format: wgpu::VertexFormat::Float32x3,
                 },
-                // Add more attributes here if needed
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as u64,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32,
+                },
             ],
         }
     }
@@ -166,13 +241,16 @@ pub struct Renderer {
     line_vertex_buffer: wgpu::Buffer,
     line_index_buffer: wgpu::Buffer,
     num_line_indices: u32,
-    // wells
-    well_render_pipeline: wgpu::RenderPipeline,
-    well_vertex_buffer: wgpu::Buffer,
-    well_index_buffer: wgpu::Buffer,
-    well_num_line_indices: u32,
-    well_instances: Vec<WellInstance>,
-    well_instance_buffer: wgpu::Buffer,
+    // signals
+    signals: Vec<SignalData>,
+    signals_buffer: wgpu::Buffer,
+    signal_render_pipeline: wgpu::RenderPipeline,
+    signal_vertex_buffer: wgpu::Buffer,
+    signal_index_buffer: wgpu::Buffer,
+    signal_num_line_indices: u32,
+    signal_instances: Vec<SignalInstance>,
+    signal_instance_buffer: wgpu::Buffer,
+    signals_bind_group: wgpu::BindGroup,
     // interactions
     pub mouse_pressed: bool,
     render_plane: bool,
@@ -337,96 +415,128 @@ impl Renderer {
         });
 
         // -----------------------------------------
-        // wells
+        // signals
         // -----------------------------------------
 
-        let well_vertices = generate_line_vertices();
+        let signal_vertices = generate_line_vertices();
 
-        let well_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let signal_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Line Vertex Buffer"),
-            contents: bytemuck::cast_slice(&well_vertices),
+            contents: bytemuck::cast_slice(&signal_vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let well_indices: Vec<u16> = (0..(NUM_LINES * VERTICES_PER_LINE) as u16).collect();
-        let well_num_line_indices = well_indices.len() as u32;
+        let signal_indices: Vec<u16> = (0..(NUM_LINES * VERTICES_PER_LINE) as u16).collect();
+        let signal_num_line_indices = signal_indices.len() as u32;
 
-        let well_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let signal_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Line Index Buffer"),
-            contents: bytemuck::cast_slice(&well_indices),
+            contents: bytemuck::cast_slice(&signal_indices),
             usage: wgpu::BufferUsages::INDEX,
         });
 
-        let well_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        let signal_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/well_shader.wgsl").into()),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/signal_shader.wgsl").into()),
         });
 
-        let well_instances: Vec<WellInstance> = vec![
-            WellInstance {
-                position: [0.0, 0.0, 0.0],
-            }, // Modify positions as needed
-               // Add more instances here
-        ];
-        let well_instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let signals = read_signals_from_csv("data/signals.csv").unwrap();
+        let signal_instances = create_signal_instances(&signals);
+
+        let signal_instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
-            contents: bytemuck::cast_slice(&well_instances),
+            contents: bytemuck::cast_slice(&signal_instances),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let well_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Render Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &well_shader,
-                entry_point: "vs_main",
-                buffers: &[LineVertex::desc(), WellInstance::desc()],
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &well_shader,
-                entry_point: "fs_main",
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState {
-                        color: wgpu::BlendComponent {
-                            src_factor: wgpu::BlendFactor::SrcAlpha,
-                            dst_factor: wgpu::BlendFactor::One,
-                            operation: wgpu::BlendOperation::Add,
-                        },
-                        alpha: wgpu::BlendComponent::REPLACE, // Or another suitable operation for alpha
-                    }),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::LineList,
-                strip_index_format: None,
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: None,
-                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-                // or Features::POLYGON_MODE_POINT
-                polygon_mode: wgpu::PolygonMode::Fill,
-                // Requires Features::DEPTH_CLIP_CONTROL
-                unclipped_depth: false,
-                // Requires Features::CONSERVATIVE_RASTERIZATION
-                conservative: false,
-            },
-            depth_stencil: Some(wgpu::DepthStencilState {
-                format: texture::Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less,
-                stencil: wgpu::StencilState::default(),
-                bias: wgpu::DepthBiasState::default(),
-            }),
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            // If the pipeline will be used with a multiview render pass, this
-            // indicates how many array layers the attachments will have.
-            multiview: None,
+        let signals = read_signals_from_csv("data/signals.csv").unwrap();
+
+        let signals_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Signals Buffer"),
+            contents: bytemuck::cast_slice(&signals),
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
         });
+
+        let signals_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Signals Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: wgpu::BufferSize::new(
+                            std::mem::size_of::<SignalData>() as u64
+                        ),
+                    },
+                    count: None,
+                }],
+            });
+
+        let signals_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &signals_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: signals_buffer.as_entire_binding(),
+            }],
+            label: Some("Signals Bind Group"),
+        });
+
+        let signal_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&render_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &signal_shader,
+                    entry_point: "vs_main",
+                    buffers: &[LineVertex::desc(), SignalInstance::desc()],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &signal_shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: config.format,
+                        blend: Some(wgpu::BlendState {
+                            color: wgpu::BlendComponent {
+                                src_factor: wgpu::BlendFactor::SrcAlpha,
+                                dst_factor: wgpu::BlendFactor::One,
+                                operation: wgpu::BlendOperation::Add,
+                            },
+                            alpha: wgpu::BlendComponent::REPLACE, // Or another suitable operation for alpha
+                        }),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::LineList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: None,
+                    // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                    // or Features::POLYGON_MODE_POINT
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    // Requires Features::DEPTH_CLIP_CONTROL
+                    unclipped_depth: false,
+                    // Requires Features::CONSERVATIVE_RASTERIZATION
+                    conservative: false,
+                },
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: texture::Texture::DEPTH_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::Less,
+                    stencil: wgpu::StencilState::default(),
+                    bias: wgpu::DepthBiasState::default(),
+                }),
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                // If the pipeline will be used with a multiview render pass, this
+                // indicates how many array layers the attachments will have.
+                multiview: None,
+            });
 
         Self {
             window,
@@ -453,13 +563,16 @@ impl Renderer {
             line_vertex_buffer,
             line_index_buffer,
             num_line_indices,
-            // well
-            well_render_pipeline,
-            well_vertex_buffer,
-            well_index_buffer,
-            well_num_line_indices,
-            well_instances,
-            well_instance_buffer,
+            // signal
+            signals,
+            signals_buffer,
+            signal_render_pipeline,
+            signal_vertex_buffer,
+            signal_index_buffer,
+            signal_num_line_indices,
+            signal_instances,
+            signal_instance_buffer,
+            signals_bind_group,
             // interactions
             mouse_pressed: false,
             animations: true,
@@ -517,24 +630,27 @@ impl Renderer {
                     .set_index_buffer(self.line_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
                 render_pass.draw_indexed(0..self.num_line_indices, 0, 0..1);
 
-                // wells
-                render_pass.set_pipeline(&self.well_render_pipeline); // Use the line rendering pipeline
+                // signals
+                render_pass.set_pipeline(&self.signal_render_pipeline);
                 render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-                render_pass.set_bind_group(1, &self.time_bind_group, &[]); // Use the correct index for the bind group
+                render_pass.set_bind_group(1, &self.time_bind_group, &[]);
+                render_pass.set_bind_group(2, &self.signals_bind_group, &[]); // Set the signals bind group
 
-                render_pass.set_vertex_buffer(0, self.well_vertex_buffer.slice(..));
-                render_pass.set_vertex_buffer(1, self.well_instance_buffer.slice(..)); // Set instance buffer
-                render_pass
-                    .set_index_buffer(self.well_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                render_pass.set_vertex_buffer(0, self.signal_vertex_buffer.slice(..));
+                render_pass.set_vertex_buffer(1, self.signal_instance_buffer.slice(..));
+                render_pass.set_index_buffer(
+                    self.signal_index_buffer.slice(..),
+                    wgpu::IndexFormat::Uint16,
+                );
                 render_pass.draw_indexed(
-                    0..self.well_num_line_indices,
+                    0..self.signal_num_line_indices,
                     0,
-                    0..self.well_instances.len() as u32,
+                    0..self.signal_instances.len() as u32,
                 );
 
                 // render_pass
-                //     .set_index_buffer(self.well_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                // render_pass.draw_indexed(0..self.well_num_line_indices, 0, 0..1);
+                //     .set_index_buffer(self.signal_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                // render_pass.draw_indexed(0..self.signal_num_line_indices, 0, 0..1);
             } else {
                 ()
             }
@@ -636,6 +752,9 @@ impl Renderer {
                 time: self.current_time,
             }]),
         );
+
+        self.queue
+            .write_buffer(&self.signals_buffer, 0, bytemuck::cast_slice(&self.signals));
 
         self.queue.write_buffer(
             &self.camera_buffer,
