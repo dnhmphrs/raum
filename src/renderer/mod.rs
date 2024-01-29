@@ -17,44 +17,40 @@ use camera::controller::CameraController;
 // read signal
 // --------------------------------------
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct SignalData {
-    time: f32,
-    slow_wave: f32,
-    delta_wave: f32,
-    theta_wave: f32,
-    alpha_wave: f32,
-    beta_wave: f32,
-    gamma_wave: f32,
-    swr: f32,
-    ied: f32,
-    composite_signal: f32,
-}
-
 use csv;
 use std::error::Error;
 use std::fs::File;
 
-fn read_signals_from_csv(file_path: &str) -> Result<Vec<SignalData>, Box<dyn Error>> {
+fn read_signals_from_csv(
+    file_path: &str,
+) -> Result<Vec<(f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)>, Box<dyn Error>> {
     let mut rdr = csv::Reader::from_reader(File::open(file_path)?);
     let mut signals = Vec::new();
 
     for result in rdr.records() {
         let record = result?;
-        let signal_data = SignalData {
-            time: record[0].parse()?,
-            slow_wave: record[1].parse()?,
-            delta_wave: record[2].parse()?,
-            theta_wave: record[3].parse()?,
-            alpha_wave: record[4].parse()?,
-            beta_wave: record[5].parse()?,
-            gamma_wave: record[6].parse()?,
-            swr: record[7].parse()?,
-            ied: record[8].parse()?,
-            composite_signal: record[9].parse()?,
-        };
-        signals.push(signal_data);
+        let time: f32 = record[0].parse()?;
+        let slow_wave: f32 = record[1].parse()?;
+        let delta_wave: f32 = record[2].parse()?;
+        let theta_wave: f32 = record[3].parse()?;
+        let alpha_wave: f32 = record[4].parse()?;
+        let beta_wave: f32 = record[5].parse()?;
+        let gamma_wave: f32 = record[6].parse()?;
+        let swr: f32 = record[7].parse()?;
+        let ied: f32 = record[8].parse()?;
+        let composite_signal: f32 = record[9].parse()?;
+        signals.push((
+            time,
+            slow_wave,
+            delta_wave,
+            theta_wave,
+            alpha_wave,
+            beta_wave,
+            gamma_wave,
+            swr,
+            ied,
+            composite_signal,
+        ));
     }
 
     Ok(signals)
@@ -168,32 +164,6 @@ fn generate_line_vertices() -> Vec<LineVertex> {
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct SignalInstance {
     position: [f32; 3],
-    signal_value: f32,
-}
-
-fn create_signal_instances(signals: &Vec<SignalData>) -> Vec<SignalInstance> {
-    signals
-        .iter()
-        .enumerate()
-        .map(|(index, signal)| {
-            let signal_value = match index {
-                0 => signal.slow_wave,
-                1 => signal.delta_wave,
-                2 => signal.theta_wave,
-                3 => signal.alpha_wave,
-                4 => signal.beta_wave,
-                5 => signal.gamma_wave,
-                6 => signal.swr,
-                7 => signal.ied,
-                8 => signal.composite_signal,
-                _ => 0.0,
-            };
-            SignalInstance {
-                position: [0.0, index as f32, 0.0],
-                signal_value,
-            }
-        })
-        .collect()
 }
 
 impl SignalInstance {
@@ -202,16 +172,13 @@ impl SignalInstance {
             array_stride: std::mem::size_of::<SignalInstance>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Instance,
             attributes: &[
+                // Define attributes (e.g., position)
                 wgpu::VertexAttribute {
                     offset: 0,
-                    shader_location: 1,
+                    shader_location: 1, // Use the next available shader location
                     format: wgpu::VertexFormat::Float32x3,
                 },
-                wgpu::VertexAttribute {
-                    offset: std::mem::size_of::<[f32; 3]>() as u64,
-                    shader_location: 2,
-                    format: wgpu::VertexFormat::Float32,
-                },
+                // Add more attributes here if needed
             ],
         }
     }
@@ -230,6 +197,8 @@ pub struct Renderer {
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     depth_texture: crate::texture::Texture,
+    // signals
+    signals: Vec<(f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)>,
     // time
     start_time: Instant,
     current_time: f32,
@@ -242,15 +211,12 @@ pub struct Renderer {
     line_index_buffer: wgpu::Buffer,
     num_line_indices: u32,
     // signals
-    signals: Vec<SignalData>,
-    signals_buffer: wgpu::Buffer,
     signal_render_pipeline: wgpu::RenderPipeline,
     signal_vertex_buffer: wgpu::Buffer,
     signal_index_buffer: wgpu::Buffer,
     signal_num_line_indices: u32,
     signal_instances: Vec<SignalInstance>,
     signal_instance_buffer: wgpu::Buffer,
-    signals_bind_group: wgpu::BindGroup,
     // interactions
     pub mouse_pressed: bool,
     render_plane: bool,
@@ -440,47 +406,16 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/signal_shader.wgsl").into()),
         });
 
-        let signals = read_signals_from_csv("data/signals.csv").unwrap();
-        let signal_instances = create_signal_instances(&signals);
-
+        let signal_instances: Vec<SignalInstance> = vec![
+            SignalInstance {
+                position: [0.0, 0.0, 0.0],
+            }, // Modify positions as needed
+               // Add more instances here
+        ];
         let signal_instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&signal_instances),
             usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let signals = read_signals_from_csv("data/signals.csv").unwrap();
-
-        let signals_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Signals Buffer"),
-            contents: bytemuck::cast_slice(&signals),
-            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let signals_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("Signals Bind Group Layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(
-                            std::mem::size_of::<SignalData>() as u64
-                        ),
-                    },
-                    count: None,
-                }],
-            });
-
-        let signals_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &signals_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: signals_buffer.as_entire_binding(),
-            }],
-            label: Some("Signals Bind Group"),
         });
 
         let signal_render_pipeline =
@@ -552,6 +487,8 @@ impl Renderer {
             camera_bind_group,
             camera_uniform,
             depth_texture,
+            // signals
+            signals: read_signals_from_csv("data/signals.csv").unwrap(),
             // Time
             start_time,
             current_time: 0.0,
@@ -564,15 +501,12 @@ impl Renderer {
             line_index_buffer,
             num_line_indices,
             // signal
-            signals,
-            signals_buffer,
             signal_render_pipeline,
             signal_vertex_buffer,
             signal_index_buffer,
             signal_num_line_indices,
             signal_instances,
             signal_instance_buffer,
-            signals_bind_group,
             // interactions
             mouse_pressed: false,
             animations: true,
@@ -631,13 +565,12 @@ impl Renderer {
                 render_pass.draw_indexed(0..self.num_line_indices, 0, 0..1);
 
                 // signals
-                render_pass.set_pipeline(&self.signal_render_pipeline);
+                render_pass.set_pipeline(&self.signal_render_pipeline); // Use the line rendering pipeline
                 render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-                render_pass.set_bind_group(1, &self.time_bind_group, &[]);
-                render_pass.set_bind_group(2, &self.signals_bind_group, &[]); // Set the signals bind group
+                render_pass.set_bind_group(1, &self.time_bind_group, &[]); // Use the correct index for the bind group
 
                 render_pass.set_vertex_buffer(0, self.signal_vertex_buffer.slice(..));
-                render_pass.set_vertex_buffer(1, self.signal_instance_buffer.slice(..));
+                render_pass.set_vertex_buffer(1, self.signal_instance_buffer.slice(..)); // Set instance buffer
                 render_pass.set_index_buffer(
                     self.signal_index_buffer.slice(..),
                     wgpu::IndexFormat::Uint16,
@@ -752,9 +685,6 @@ impl Renderer {
                 time: self.current_time,
             }]),
         );
-
-        self.queue
-            .write_buffer(&self.signals_buffer, 0, bytemuck::cast_slice(&self.signals));
 
         self.queue.write_buffer(
             &self.camera_buffer,

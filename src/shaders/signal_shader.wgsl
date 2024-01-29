@@ -11,7 +11,7 @@ struct VertexInput {
 
 struct InstanceInput {
     @location(1) instance_position: vec3<f32>,
-    @location(2) signal_value: f32,
+    // @location(2) signal_value: f32,
 };
 
 struct VertexOutput {
@@ -29,7 +29,7 @@ var<uniform> time: TimeUniform;
 fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
     var out: VertexOutput;
     // Use instance.signal_value for the Y coordinate
-    out.clip_position = camera.view_proj * vec4<f32>(vertex.position.x, instance.signal_value, vertex.position.z + instance.instance_position.z, 1.0);
+    out.clip_position = camera.view_proj * vec4<f32>(vertex.position.x, vertex.position.y, vertex.position.z + instance.instance_position.z, 1.0);
     return out;
 }
 
