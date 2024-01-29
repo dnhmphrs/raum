@@ -11,7 +11,6 @@ struct VertexInput {
 
 struct InstanceInput {
     @location(1) instance_position: vec3<f32>,
-    // @location(2) signal_value: f32,
 };
 
 struct VertexOutput {
@@ -25,30 +24,28 @@ struct TimeUniform {
 @group(1) @binding(0)
 var<uniform> time: TimeUniform;
 
+@group(2) @binding(0)
+var<storage, read> signalData: array<f32>;
+
 @vertex
 fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
     var out: VertexOutput;
-    // Use instance.signal_value for the Y coordinate
-    out.clip_position = camera.view_proj * vec4<f32>(vertex.position.x, vertex.position.y, vertex.position.z + instance.instance_position.z, 1.0);
+
+    // Calculate the index into the signal data buffer
+    let signal_index: u32 = u32(instance.instance_position.z);
+    let vertex_index: u32 = u32(vertex.position.x);
+    let data_index = signal_index * 1000000u + vertex_index;
+
+    // Fetch the signal value
+    let signal_value = signalData[data_index];
+
+    // Use signal_value for the Y coordinate
+    out.clip_position = camera.view_proj * vec4<f32>(vertex.position.x * 0.02 - 5.0, signal_value, vertex.position.z + instance.instance_position.z - 5.0, 1.0);
     return out;
 }
 
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-//     let speed = 5.0; // Control the speed of the rain
-//     let repeat_y = 250.0; // The height at which the rain repeats
-
-//     // Calculate the raindrop effect
-//     let y_effect = fract(in.clip_position.y / repeat_y - time.time * speed);
-// // Initialize opacity
-//     var opacity: f32 = 0.0;
-
-//     // Determine the opacity based on y_effect
-//     if (y_effect < 0.5) {
-//         opacity = 1.0;
-//     } else {
-//         opacity = 0.0;
-//     }
-
     return vec4<f32>(1.0, 1.0, 1.0, 1.0);
 }

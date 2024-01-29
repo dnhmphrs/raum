@@ -21,39 +21,20 @@ use csv;
 use std::error::Error;
 use std::fs::File;
 
-fn read_signals_from_csv(
-    file_path: &str,
-) -> Result<Vec<(f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)>, Box<dyn Error>> {
+const MAX_VISIBLE_POINTS: usize = 1000;
+
+fn read_signals_from_csv(file_path: &str) -> Result<Vec<Vec<f32>>, Box<dyn Error>> {
     let mut rdr = csv::Reader::from_reader(File::open(file_path)?);
-    let mut signals = Vec::new();
+    let mut data: Vec<Vec<f32>> = vec![Vec::new(); 10]; // Create a vector of 10 empty vectors
 
     for result in rdr.records() {
         let record = result?;
-        let time: f32 = record[0].parse()?;
-        let slow_wave: f32 = record[1].parse()?;
-        let delta_wave: f32 = record[2].parse()?;
-        let theta_wave: f32 = record[3].parse()?;
-        let alpha_wave: f32 = record[4].parse()?;
-        let beta_wave: f32 = record[5].parse()?;
-        let gamma_wave: f32 = record[6].parse()?;
-        let swr: f32 = record[7].parse()?;
-        let ied: f32 = record[8].parse()?;
-        let composite_signal: f32 = record[9].parse()?;
-        signals.push((
-            time,
-            slow_wave,
-            delta_wave,
-            theta_wave,
-            alpha_wave,
-            beta_wave,
-            gamma_wave,
-            swr,
-            ied,
-            composite_signal,
-        ));
+        for (index, value) in record.iter().enumerate() {
+            data[index].push(value.parse()?);
+        }
     }
 
-    Ok(signals)
+    Ok(data)
 }
 
 // --------------------------------------
@@ -143,27 +124,33 @@ const CUBE_EDGE_INDICES: &[u16] = &[
 // signals
 // --------------------------------------
 
-const NUM_LINES: usize = 9;
-const VERTICES_PER_LINE: usize = 2; // just 2
+// const NUM_LINES: usize = 10;
+// const VERTICES_PER_LINE: usize = 2; // just 2
 
-fn generate_line_vertices() -> Vec<LineVertex> {
-    let mut vertices = Vec::new();
-    for line_index in 0..NUM_LINES {
-        let z_position = line_index as f32 - (NUM_LINES as f32) * 0.5 + 0.5; // Spread lines along the x-axis
-        for vertex_index in 0..VERTICES_PER_LINE {
-            let x_position = vertex_index as f32 * 1000.0 - 500.0; // Vertical position
-            vertices.push(LineVertex {
-                position: [x_position, 0.0, z_position], // All lines are along the z-axis
-            });
-        }
-    }
-    vertices
-}
+// fn generate_line_vertices(num_lines: usize) -> Vec<LineVertex> {
+//     let mut vertices = Vec::new();
+
+//     for line_index in 0..num_lines {
+//         let z_position = line_index as f32 - (num_lines as f32) * 0.5 + 0.5; // Spread lines along the z-axis
+
+//         // Create only two vertices per line, representing the start and end of the visible segment
+//         for vertex_index in 0..VERTICES_PER_LINE {
+//             let x_position = vertex_index as f32 * 100.0 - 50.0; // Adjust as needed
+//             let y_position = 0.0; // Placeholder, actual value will be sampled from the GPU buffer
+//             vertices.push(LineVertex {
+//                 position: [x_position, y_position, z_position],
+//             });
+//         }
+//     }
+
+//     vertices
+// }
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct SignalInstance {
     position: [f32; 3],
+    signal_index: u32,
 }
 
 impl SignalInstance {
@@ -178,7 +165,12 @@ impl SignalInstance {
                     shader_location: 1, // Use the next available shader location
                     format: wgpu::VertexFormat::Float32x3,
                 },
-                // Add more attributes here if needed
+                wgpu::VertexAttribute {
+                    offset: std::mem::size_of::<[f32; 3]>() as u64
+                        + std::mem::size_of::<[f32; 4]>() as u64,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Uint32,
+                },
             ],
         }
     }
@@ -197,8 +189,9 @@ pub struct Renderer {
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     depth_texture: crate::texture::Texture,
-    // signals
-    signals: Vec<(f32, f32, f32, f32, f32, f32, f32, f32, f32, f32)>,
+    // signal data
+    // signals: Vec<Vec<f32>>,
+    signal_data_bind_group: wgpu::BindGroup,
     // time
     start_time: Instant,
     current_time: f32,
@@ -381,22 +374,76 @@ impl Renderer {
         });
 
         // -----------------------------------------
+        // signal data
+        // -----------------------------------------
+        fn create_signal_data_buffer(
+            device: &wgpu::Device,
+            signal_data: &[Vec<f32>],
+        ) -> wgpu::Buffer {
+            let flattened_data: Vec<f32> = signal_data.iter().flatten().cloned().collect();
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Signal Data Buffer"),
+                contents: bytemuck::cast_slice(&flattened_data),
+                usage: wgpu::BufferUsages::STORAGE,
+            })
+        }
+
+        let signal_data = read_signals_from_csv("data/signals.csv").unwrap();
+        let signal_data_buffer = create_signal_data_buffer(&device, &signal_data);
+
+        let signal_data_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("Signal Data Bind Group Layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: true },
+                        has_dynamic_offset: false,
+                        min_binding_size: wgpu::BufferSize::new(
+                            std::mem::size_of::<f32>() as u64 * MAX_VISIBLE_POINTS as u64,
+                        ),
+                    },
+                    count: None,
+                }],
+            });
+
+        let signal_data_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &signal_data_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: signal_data_buffer.as_entire_binding(),
+            }],
+            label: Some("Signal Data Bind Group"),
+        });
+
+        // -----------------------------------------
         // signals
         // -----------------------------------------
 
-        let signal_vertices = generate_line_vertices();
+        let signal_vertices: Vec<LineVertex> = (0..MAX_VISIBLE_POINTS)
+            .flat_map(|i| {
+                vec![
+                    LineVertex {
+                        position: [i as f32, 0.0, 0.0],
+                    },
+                    LineVertex {
+                        position: [(i + 1) as f32, 0.0, 0.0],
+                    },
+                ]
+            })
+            .collect();
 
         let signal_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Line Vertex Buffer"),
+            label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(&signal_vertices),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let signal_indices: Vec<u16> = (0..(NUM_LINES * VERTICES_PER_LINE) as u16).collect();
-        let signal_num_line_indices = signal_indices.len() as u32;
-
+        // Create an index buffer for line segments
+        let signal_indices: Vec<u16> = (0..(MAX_VISIBLE_POINTS - 1) as u16).collect();
         let signal_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Line Index Buffer"),
+            label: Some("Index Buffer"),
             contents: bytemuck::cast_slice(&signal_indices),
             usage: wgpu::BufferUsages::INDEX,
         });
@@ -409,8 +456,44 @@ impl Renderer {
         let signal_instances: Vec<SignalInstance> = vec![
             SignalInstance {
                 position: [0.0, 0.0, 0.0],
-            }, // Modify positions as needed
-               // Add more instances here
+                signal_index: 0,
+            },
+            SignalInstance {
+                position: [0.0, 0.0, 1.0],
+                signal_index: 1,
+            },
+            SignalInstance {
+                position: [0.0, 0.0, 2.0],
+                signal_index: 2,
+            },
+            SignalInstance {
+                position: [0.0, 0.0, 3.0],
+                signal_index: 3,
+            },
+            SignalInstance {
+                position: [0.0, 0.0, 4.0],
+                signal_index: 4,
+            },
+            SignalInstance {
+                position: [0.0, 0.0, 5.0],
+                signal_index: 5,
+            },
+            SignalInstance {
+                position: [0.0, 0.0, 6.0],
+                signal_index: 6,
+            },
+            SignalInstance {
+                position: [0.0, 0.0, 7.0],
+                signal_index: 7,
+            },
+            SignalInstance {
+                position: [0.0, 0.0, 8.0],
+                signal_index: 8,
+            },
+            SignalInstance {
+                position: [0.0, 0.0, 9.0],
+                signal_index: 9,
+            },
         ];
         let signal_instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
@@ -418,10 +501,21 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
+        let signal_render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[
+                    &camera_bind_group_layout,
+                    &time_bind_group_layout,
+                    &signal_data_bind_group_layout,
+                ],
+                push_constant_ranges: &[],
+            });
+
         let signal_render_pipeline =
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("Render Pipeline"),
-                layout: Some(&render_pipeline_layout),
+                layout: Some(&signal_render_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &signal_shader,
                     entry_point: "vs_main",
@@ -488,7 +582,8 @@ impl Renderer {
             camera_uniform,
             depth_texture,
             // signals
-            signals: read_signals_from_csv("data/signals.csv").unwrap(),
+            // signals,
+            signal_data_bind_group,
             // Time
             start_time,
             current_time: 0.0,
@@ -504,7 +599,7 @@ impl Renderer {
             signal_render_pipeline,
             signal_vertex_buffer,
             signal_index_buffer,
-            signal_num_line_indices,
+            signal_num_line_indices: (MAX_VISIBLE_POINTS - 1) as u32,
             signal_instances,
             signal_instance_buffer,
             // interactions
@@ -565,25 +660,24 @@ impl Renderer {
                 render_pass.draw_indexed(0..self.num_line_indices, 0, 0..1);
 
                 // signals
-                render_pass.set_pipeline(&self.signal_render_pipeline); // Use the line rendering pipeline
+                render_pass.set_pipeline(&self.signal_render_pipeline);
                 render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-                render_pass.set_bind_group(1, &self.time_bind_group, &[]); // Use the correct index for the bind group
+                render_pass.set_bind_group(1, &self.time_bind_group, &[]);
+                render_pass.set_bind_group(2, &self.signal_data_bind_group, &[]);
 
                 render_pass.set_vertex_buffer(0, self.signal_vertex_buffer.slice(..));
-                render_pass.set_vertex_buffer(1, self.signal_instance_buffer.slice(..)); // Set instance buffer
+                render_pass.set_vertex_buffer(1, self.signal_instance_buffer.slice(..));
                 render_pass.set_index_buffer(
                     self.signal_index_buffer.slice(..),
                     wgpu::IndexFormat::Uint16,
                 );
+
+                // Draw the signals
                 render_pass.draw_indexed(
                     0..self.signal_num_line_indices,
                     0,
                     0..self.signal_instances.len() as u32,
                 );
-
-                // render_pass
-                //     .set_index_buffer(self.signal_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                // render_pass.draw_indexed(0..self.signal_num_line_indices, 0, 0..1);
             } else {
                 ()
             }
