@@ -34,13 +34,14 @@ fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
     // Calculate the index into the signal data buffer
     let signal_index: u32 = u32(instance.instance_position.z);
     let vertex_index: u32 = u32(vertex.position.x);
-    let data_index = signal_index * 1000000u + vertex_index;
+    let time_index: u32 = u32(time.time * 5000.0);
+    let data_index = signal_index * 1000000u + vertex_index + time_index;
 
     // Fetch the signal value
     let signal_value = signalData[data_index];
 
     // Use signal_value for the Y coordinate
-    out.clip_position = camera.view_proj * vec4<f32>(vertex.position.x * 0.02 - 5.0, signal_value, vertex.position.z + instance.instance_position.z - 5.0, 1.0);
+    out.clip_position = camera.view_proj * vec4<f32>(vertex.position.x * 0.02 - 5.0, signal_value, vertex.position.z + instance.instance_position.z - 4.0, 1.0);
     return out;
 }
 

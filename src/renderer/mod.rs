@@ -22,10 +22,11 @@ use std::error::Error;
 use std::fs::File;
 
 const MAX_VISIBLE_POINTS: usize = 1000;
+const NUM_SIGNALS: usize = 9;
 
 fn read_signals_from_csv(file_path: &str) -> Result<Vec<Vec<f32>>, Box<dyn Error>> {
     let mut rdr = csv::Reader::from_reader(File::open(file_path)?);
-    let mut data: Vec<Vec<f32>> = vec![Vec::new(); 10]; // Create a vector of 10 empty vectors
+    let mut data: Vec<Vec<f32>> = vec![Vec::new(); NUM_SIGNALS]; // Create a vector of 10 empty vectors
 
     for result in rdr.records() {
         let record = result?;
@@ -489,10 +490,6 @@ impl Renderer {
             SignalInstance {
                 position: [0.0, 0.0, 8.0],
                 signal_index: 8,
-            },
-            SignalInstance {
-                position: [0.0, 0.0, 9.0],
-                signal_index: 9,
             },
         ];
         let signal_instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
