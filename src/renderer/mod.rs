@@ -454,44 +454,23 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(include_str!("../shaders/signal_shader.wgsl").into()),
         });
 
-        let signal_instances: Vec<SignalInstance> = vec![
-            SignalInstance {
-                position: [0.0, 0.0, 0.0],
-                signal_index: 0,
-            },
-            SignalInstance {
-                position: [0.0, 0.0, 1.0],
-                signal_index: 1,
-            },
-            SignalInstance {
-                position: [0.0, 0.0, 2.0],
-                signal_index: 2,
-            },
-            SignalInstance {
-                position: [0.0, 0.0, 3.0],
-                signal_index: 3,
-            },
-            SignalInstance {
-                position: [0.0, 0.0, 4.0],
-                signal_index: 4,
-            },
-            SignalInstance {
-                position: [0.0, 0.0, 5.0],
-                signal_index: 5,
-            },
-            SignalInstance {
-                position: [0.0, 0.0, 6.0],
-                signal_index: 6,
-            },
-            SignalInstance {
-                position: [0.0, 0.0, 7.0],
-                signal_index: 7,
-            },
-            SignalInstance {
-                position: [0.0, 0.0, 8.0],
-                signal_index: 8,
-            },
-        ];
+        // make as many instances as there are signals
+        let mut signal_instances: Vec<SignalInstance> = Vec::new();
+        for signal_index in 0..NUM_SIGNALS {
+            // z_position must go from 0..NUM_SIGNALS
+            let z_position = signal_index as f32; // Spread lines along the z-axis
+
+            // Create only two vertices per line, representing the start and end of the visible segment
+            for vertex_index in 0..MAX_VISIBLE_POINTS {
+                let x_position = vertex_index as f32; // Adjust as needed
+                let y_position = 0.0; // Placeholder, actual value will be sampled from the GPU buffer
+                signal_instances.push(SignalInstance {
+                    position: [x_position, y_position, z_position],
+                    signal_index: signal_index as u32,
+                });
+            }
+        }
+
         let signal_instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Instance Buffer"),
             contents: bytemuck::cast_slice(&signal_instances),
