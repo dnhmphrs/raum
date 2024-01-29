@@ -34,7 +34,7 @@ fn vs_main(vertex: VertexInput, instance: InstanceInput) -> VertexOutput {
     // Calculate the index into the signal data buffer
     let signal_index: u32 = u32(instance.instance_position.z);
     let vertex_index: u32 = u32(vertex.position.x);
-    let time_index: u32 = u32(time.time * 5000.0);
+    let time_index: u32 = u32(time.time * 2500.0);
     let data_index = signal_index * 1000000u + vertex_index + time_index;
 
     // Fetch the signal value
