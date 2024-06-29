@@ -18,8 +18,13 @@ var<uniform> camera: CameraUniform;
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
     var output: VertexOutput;
-    output.clip_position = camera.view_proj * vec4<f32>(input.position * 1.0, 1.0); // Adjust scaling if necessary
-    output.world_pos = input.position;  // Assuming input.position represents world position
+    
+    // Adjust position based on z-axis scaling
+    let scaled_position = input.position * vec3<f32>(1.0, 1.0, scale_factor); // scale_factor depends on the plane
+
+    output.clip_position = camera.view_proj * vec4<f32>(scaled_position, 1.0);
+    output.world_pos = scaled_position;  // Adjust as per your requirement
+    
     return output;
 }
 
