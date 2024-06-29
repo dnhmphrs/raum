@@ -2,7 +2,7 @@ use std::iter;
 
 // use cgmath::prelude::*;
 use cgmath::*;
-use rand::Rng;
+// use rand::Rng;
 use std::time::Instant;
 use wgpu::util::DeviceExt;
 use winit::{dpi::PhysicalSize, event::*, window::Window};
@@ -881,37 +881,37 @@ impl Renderer {
         Ok(())
     }
 
-    pub fn update_plane_vertices(&mut self) {
-        let peak_height = 3.0; // Height of the peak
+    // pub fn update_plane_vertices(&mut self) {
+    //     let peak_height = 3.0; // Height of the peak
 
-        let mut new_vertices = Vec::new();
-        for vertex in PLANE_VERTICES.iter() {
-            // Calculate the distance from the center of the plane
-            let distance = ((vertex.position[0] * vertex.position[0])
-                + (vertex.position[2] * vertex.position[2])
-                + Rng::gen_range(&mut rand::thread_rng(), 0.0..0.05))
-            .sqrt();
+    //     let mut new_vertices = Vec::new();
+    //     for vertex in PLANE_VERTICES.iter() {
+    //         // Calculate the distance from the center of the plane
+    //         let distance = ((vertex.position[0] * vertex.position[0])
+    //             + (vertex.position[2] * vertex.position[2])
+    //             + Rng::gen_range(&mut rand::thread_rng(), 0.0..0.05))
+    //         .sqrt();
 
-            let wave_frequency = 0.05 + Rng::gen_range(&mut rand::thread_rng(), 0.0..0.01);
-            // Calculate the displacement using a Gaussian-like function
-            let displacement = peak_height
-                * (vertex.position[0] * wave_frequency * distance).sin()
-                * (vertex.position[2] * wave_frequency * distance).cos();
+    //         let wave_frequency = 0.05 + Rng::gen_range(&mut rand::thread_rng(), 0.0..0.01);
+    //         // Calculate the displacement using a Gaussian-like function
+    //         let displacement = peak_height
+    //             * (vertex.position[0] * wave_frequency * distance).sin()
+    //             * (vertex.position[2] * wave_frequency * distance).cos();
 
-            new_vertices.push(PlaneVertex {
-                position: vertex.position,
-                displacement,
-            });
-        }
+    //         new_vertices.push(PlaneVertex {
+    //             position: vertex.position,
+    //             displacement,
+    //         });
+    //     }
 
-        self.plane_vertex_buffer =
-            self.device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Vertex Buffer 2"),
-                    contents: bytemuck::cast_slice(&new_vertices),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-    }
+    //     self.plane_vertex_buffer =
+    //         self.device
+    //             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+    //                 label: Some("Vertex Buffer 2"),
+    //                 contents: bytemuck::cast_slice(&new_vertices),
+    //                 usage: wgpu::BufferUsages::VERTEX,
+    //             });
+    // }
 
     pub fn window(&self) -> &Window {
         &self.window
