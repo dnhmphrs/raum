@@ -12,7 +12,7 @@ pub fn handle_event(event: Event<()>, renderer: &mut Renderer, control_flow: &mu
             ..
         } => {
             if renderer.mouse_pressed {
-                renderer.camera_controller.process_mouse(delta.0, delta.1)
+                renderer.camera_controller().process_mouse(delta.0, delta.1)
             } else if renderer.mouse_released {
                 renderer.mouse_released = false;
             }

@@ -4,7 +4,9 @@ use winit::event_loop::EventLoop;
 
 pub mod camera;
 pub mod renderer;
+pub mod scenes;  // Add this line
 pub mod texture;
+
 use app::window::WindowSize;
 use renderer::Renderer;
 

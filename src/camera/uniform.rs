@@ -2,6 +2,7 @@ use bytemuck::{self};
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[allow(dead_code)]
 pub struct CameraUniform {
     view_proj: [[f32; 4]; 4],
 }
