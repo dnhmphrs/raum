@@ -16,7 +16,14 @@ FetchContent_Declare(VulkanHeaders
 FetchContent_MakeAvailable(VulkanHeaders)   # defines Vulkan::Headers
 
 # Must come after the headers so FindVulkan does not define its own Vulkan::Headers.
-find_package(Vulkan REQUIRED)
+find_package(Vulkan)
+if(NOT Vulkan_FOUND)
+  message(FATAL_ERROR
+    "Vulkan SDK not found. Install it from https://vulkan.lunarg.com/sdk/home, then open a NEW "
+    "terminal so the VULKAN_SDK environment variable is picked up, and configure again. "
+    "On Linux you can instead install the distro packages (libvulkan-dev, vulkan-validationlayers). "
+    "Only the loader library and validation layers are taken from the SDK; headers are pinned above.")
+endif()
 set(RAUM_VULKAN_LOADER ${Vulkan_LIBRARIES})
 
 # --- GLFW: window, input, Vulkan surface creation --------------------------------------
