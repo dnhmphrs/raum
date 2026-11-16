@@ -1,0 +1,7 @@
+# Ignore Builds
+/target
+/pkg
+/web
+
+# Ignore Config
+.vscode

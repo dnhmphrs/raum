@@ -1,7 +1,15 @@
-# Ignore Builds
-/target
-/pkg
-/web
+# Build output
+/build/
+/build-*/
+/cmake-build-*/
+/out/
 
-# Ignore Config
-.vscode
+# Editor / IDE
+.vscode/
+.idea/
+.cache/
+/compile_commands.json
+
+# OS
+.DS_Store
+Thumbs.db
